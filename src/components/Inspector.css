@@ -1,0 +1,95 @@
+.inspector {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.inspector-header {
+  height: 40px;
+  background-color: #3e3e42;
+  display: flex;
+  align-items: center;
+  padding: 0 15px;
+  border-bottom: 1px solid #555;
+}
+
+.inspector-header h3 {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.inspector-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.inspector-empty {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+}
+
+.inspector-empty small {
+  display: block;
+  margin-top: 5px;
+  color: #666;
+  font-size: 12px;
+}
+
+.inspector-section {
+  border-bottom: 1px solid #3e3e42;
+  padding: 10px 15px;
+}
+
+.inspector-section-title {
+  color: #007acc;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.inspector-property {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.inspector-property label {
+  color: #ccc;
+  font-size: 13px;
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.inspector-property input {
+  flex: 1;
+  background-color: #3e3e42;
+  color: #fff;
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  font-size: 13px;
+}
+
+.inspector-property input:focus {
+  outline: none;
+  border-color: #007acc;
+}
+
+.inspector-property span {
+  color: #888;
+  font-size: 13px;
+}
+
+.inspector-tags {
+  color: #888;
+  font-size: 13px;
+}
+
+
+
+
+

@@ -1,0 +1,153 @@
+# ReGame Engine - Cursor AI Rules
+
+## Project Overview
+ReGame Engine is a visual game editor built with Electron + React (Vite) that generates Expo projects using React Native Skia, Reanimated, and a custom Kaplay-style component system.
+
+## Critical Workflow Rules
+
+### 1. ALWAYS Update Both Template AND User Projects
+When modifying game engine code or project structure:
+- ✅ Update `expo-template/` (for NEW projects)
+- ✅ Update any OPEN user project (e.g., `MyGame23/`) (for EXISTING projects)
+- ✅ Update both or changes will be inconsistent!
+
+**Locations to sync:**
+- `expo-template/engine/` ↔ User projects' `engine/`
+- `expo-template/package.json` ↔ User projects' `package.json`
+- `expo-template/metro.config.js` ↔ User projects' `metro.config.js`
+- `expo-template/app.json` ↔ User projects' `app.json`
+
+### 2. File Generation Chain
+When saving a scene in the editor:
+1. **User edits** in editor UI (src/App.jsx)
+2. **Saves scene** → `scenes/MainScene.json` (editor data with viewport, objects, components)
+3. **Code generator** (`src/utils/codeGenerator.js`) → generates `scenes/Main.js` (runtime code)
+4. **App.js** imports and runs the generated scene
+
+**Remember:** Changes to scene format must update:
+- JSON schema in `App.jsx` (save/load functions)
+- Code generator in `src/utils/codeGenerator.js`
+- Runtime engine in `expo-template/engine/`
+
+### 3. Kaplay-Style Component System
+GameObjects use a component-based system where `this` inside component methods refers to the GameObject:
+
+```javascript
+// Script components must bind 'this' to GameObject
+const player = ctx.add([
+  pos(100, 100),
+  rect(50, 50, 'red'),
+  "player"
+]);
+
+// Custom component with proper 'this' binding
+player.add(customComponent.call(player));
+```
+
+**Code Generator Pattern:**
+- Extract script code from JSON
+- Wrap in Kaplay-style component function
+- Use `.call(gameObject)` to bind `this`
+- See `src/utils/codeGenerator.js` lines 84-123
+
+### 4. Expo Dev Build Workflow (NOT Expo Go)
+**User is using Expo Dev Build**, not Expo Go:
+- ✅ Use: `npx expo run:android` (builds native app once)
+- ❌ Don't use: `npx expo start` with Expo Go (has limitations)
+- Metro bundler stays running after build for hot reload
+- Reload: Send 'r' (single character) to Metro stdin
+
+**Device Selection:**
+- Use `ANDROID_SERIAL` environment variable to target device
+- List devices with `adb devices -l`
+- List available emulators with `emulator -list-avds` (needs ANDROID_HOME)
+
+### 5. Editor UI Guidelines (Godot-Inspired)
+- **Compact design**: Small fonts (11-13px), tight padding
+- **Hierarchy panel**: Tree view with icons, right-click context menus
+- **Scene viewport**: Red camera outline showing device dimensions
+- **Inspector**: Property grid for selected GameObject
+- **Console**: Compact strip at bottom (100-120px max height)
+
+### 6. Package Version Management
+**ALWAYS use Expo SDK 54 compatible versions:**
+```json
+{
+  "@shopify/react-native-skia": "2.2.12",
+  "react-native-gesture-handler": "2.28.0",
+  "react-native-reanimated": "4.1.1",
+  "expo": "~54.0.0"
+}
+```
+Update in BOTH `expo-template/package.json` AND user projects!
+
+### 7. Electron + Vite Dev Server
+- Electron main process: `electron/main.js`
+- Preload script: `electron/preload.js` (exposes IPC to renderer)
+- React UI: `src/App.jsx` (runs in Vite dev server on port 5173)
+- Kill orphaned processes: `concurrently --kill-others` flag prevents zombie processes
+
+### 8. Metro Config (Disable Expo Router)
+Projects use custom entry point (`index.js` → `App.js`), NOT Expo Router:
+```javascript
+// metro.config.js
+config.transformer = {
+  unstable_allowRequireContext: false,
+};
+config.resolver = {
+  blockList: [/.*\/app\/.*/], // Block app/ directory
+};
+```
+
+### 9. Scene Camera/Viewport System
+- Viewport settings stored in scene JSON: `{ viewport: { preset, width, height } }`
+- Editor shows visual camera outline (red border)
+- Runtime uses `useWindowDimensions()` for actual device size
+- Presets: 9:16, 16:9, 9:19.5, 4:3, 16:10
+
+### 10. Common Pitfalls to Avoid
+- ❌ Don't use `CI: '1'` env var (causes Metro to exit immediately)
+- ❌ Don't kill port 8081 without cleaning up properly
+- ❌ Don't forget to update BOTH template and user projects
+- ❌ Don't assume Expo Go - user wants Dev Build
+- ❌ Don't use `--device=` flag with expo run:android (use ANDROID_SERIAL instead)
+
+## File Structure Reference
+```
+regame-engine/
+├── electron/
+│   ├── main.js          # Main process, IPC handlers, game process spawning
+│   └── preload.js       # Exposes electronAPI to renderer
+├── src/
+│   ├── App.jsx          # Editor UI (scene view, hierarchy, inspector)
+│   ├── App-compact.css  # Godot-style compact UI
+│   ├── utils/
+│   │   └── codeGenerator.js  # JSON → JS scene code generator
+│   └── components/
+│       └── ScriptEditor.jsx  # Monaco editor for scripts
+├── expo-template/       # Template for NEW projects
+│   ├── engine/          # Game engine (Skia + Reanimated)
+│   ├── scenes/          # Generated scene JS files
+│   ├── App.js           # Main entry point
+│   └── package.json     # Dependencies (SDK 54)
+└── RegameProjects/      # User projects (e.g., MyGame23/)
+    └── MyGame23/        # EXISTING project (also needs updates!)
+```
+
+## Quick Checklist for Changes
+When making changes, ask yourself:
+- [ ] Did I update the template?
+- [ ] Did I update the open user project?
+- [ ] Did I update the code generator if JSON schema changed?
+- [ ] Did I test with Expo Dev Build (not Expo Go)?
+- [ ] Did I check package versions match SDK 54?
+- [ ] Did I update .cursorrules if workflow changed?
+
+## Memory Notes
+- User prefers Expo Dev Build over Expo Go
+- User wants Godot-style compact UI
+- User is on Windows (use Windows-specific commands)
+- ANDROID_HOME must be set for emulator commands
+- Metro reload: single 'r' character to stdin
+
+

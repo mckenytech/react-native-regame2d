@@ -1,0 +1,131 @@
+.toolbar {
+  height: 50px;
+  background-color: #007acc;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-bottom: 1px solid #005a9e;
+  justify-content: space-between;
+}
+
+.toolbar-left, .toolbar-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex: 1;
+}
+
+.toolbar-right {
+  justify-content: flex-end;
+}
+
+.toolbar-center {
+  display: flex;
+  gap: 10px;
+}
+
+.toolbar-project-name {
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  margin-left: 15px;
+}
+
+.toolbar-btn {
+  padding: 6px 12px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.toolbar-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.toolbar-control-btn {
+  padding: 8px 16px;
+  background-color: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.toolbar-control-btn:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.toolbar-control-btn.active {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.toolbar-control-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-project-path {
+  color: #ccc;
+  font-size: 12px;
+  margin-left: 10px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar-run-dropdown {
+  position: relative;
+}
+
+.toolbar-run-btn {
+  background-color: #0e639c !important;
+}
+
+.toolbar-run-btn:hover {
+  background-color: #1177bb !important;
+}
+
+.toolbar-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 5px;
+  background-color: #2d2d30;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  min-width: 180px;
+}
+
+.toolbar-dropdown-menu button {
+  width: 100%;
+  padding: 10px 15px;
+  background: none;
+  border: none;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.toolbar-dropdown-menu button:hover {
+  background-color: #094771;
+}
+
+.toolbar-info {
+  color: #888;
+  font-size: 13px;
+  font-style: italic;
+}
+

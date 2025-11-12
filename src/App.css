@@ -1,0 +1,409 @@
+/* ========================================
+   REGAME ENGINE - COMPACT UI (Godot/Unity Style)
+   ======================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background-color: #1e1e1e;
+  color: #cccccc;
+  overflow: hidden;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #1e1e1e;
+}
+
+/* ========== TOOLBAR (Compact) ========== */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #2d2d30;
+  padding: 4px 8px;
+  border-bottom: 1px solid #3e3e42;
+  min-height: 32px;
+  flex-shrink: 0;
+}
+
+.toolbarButton {
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 2px;
+  padding: 3px 8px;
+  color: #ddd;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.1s;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbarButton:hover {
+  background-color: #505050;
+  border-color: #777;
+}
+
+.toolbarTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+
+.toolbarSubtitle {
+  font-size: 12px;
+  color: #888;
+}
+
+.toolbarCenter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.playButton {
+  background-color: #4caf50 !important;
+  border-color: #45a049 !important;
+}
+
+.playButton:hover {
+  background-color: #45a049 !important;
+}
+
+.stopButton {
+  background-color: #f44336 !important;
+  border-color: #da190b !important;
+}
+
+.stopButton:hover {
+  background-color: #da190b !important;
+}
+
+.saveButton {
+  background-color: #2196F3 !important;
+  border-color: #1976D2 !important;
+}
+
+.reloadButton {
+  background-color: #ff9800 !important;
+  border-color: #f57c00 !important;
+}
+
+/* ========== SCENE SELECTOR ========== */
+.sceneSelector {
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 2px;
+  padding: 2px 6px;
+  color: #ddd;
+  font-size: 12px;
+  cursor: pointer;
+  height: 24px;
+}
+
+.newSceneButton {
+  background-color: #2196F3;
+  border: 1px solid #1976D2;
+  border-radius: 2px;
+  padding: 2px 8px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  height: 24px;
+}
+
+/* ========== EDITOR LAYOUT (3-Panel) ========== */
+.editorLayout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* LEFT PANEL - Hierarchy (Narrow) */
+.hierarchy {
+  width: 220px;
+  background-color: #252526;
+  border-right: 1px solid #3e3e42;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.panelHeader {
+  background-color: #2d2d30;
+  padding: 6px 8px;
+  border-bottom: 1px solid #3e3e42;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panelTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ccc;
+  margin: 0;
+}
+
+.panelContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+/* CENTER PANEL - Scene View */
+.sceneView {
+  flex: 1;
+  background-color: #1e1e1e;
+  display: flex;
+  flex-direction: column;
+}
+
+.sceneCanvas {
+  flex: 1;
+  background-color: #2a2a2a;
+  position: relative;
+  overflow: auto;
+  border: 2px solid #3e3e42;
+  margin: 8px;
+}
+
+/* RIGHT PANEL - Inspector (Narrow) */
+.inspector {
+  width: 300px;
+  background-color: #252526;
+  border-left: 1px solid #3e3e42;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.inspectorContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ========== GAME OBJECTS IN HIERARCHY ========== */
+.hierarchyItem {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 2px;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.hierarchyItem:hover {
+  background-color: #2a2d2e;
+}
+
+.hierarchyItem.selected {
+  background-color: #094771;
+  color: #fff;
+}
+
+/* ========== BUTTONS (Compact) ========== */
+.button, .addButton, .deleteButton {
+  background-color: #0e639c;
+  border: none;
+  border-radius: 2px;
+  padding: 4px 10px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+  height: 24px;
+}
+
+.button:hover {
+  background-color: #1177bb;
+}
+
+.deleteButton {
+  background-color: #c5534c;
+}
+
+.deleteButton:hover {
+  background-color: #da190b;
+}
+
+.addButton {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* ========== PROPERTY FIELDS (Compact) ========== */
+.propertyGroup {
+  background-color: #2d2d30;
+  border-radius: 2px;
+  padding: 6px;
+  margin-bottom: 6px;
+}
+
+.propertyLabel {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 3px;
+  display: block;
+}
+
+.propertyField {
+  width: 100%;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 2px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  height: 24px;
+}
+
+.propertyField:focus {
+  outline: none;
+  border-color: #007acc;
+}
+
+/* ========== RESIZABLE CONSOLE (Bottom) ========== */
+.gameConsole {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #1e1e1e;
+  border-top: 2px solid #3e3e42;
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  min-height: 160px;
+  max-height: 60vh;
+  resize: vertical;
+  overflow: hidden;
+}
+
+.consoleHeader {
+  background-color: #2d2d30;
+  padding: 6px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #3e3e42;
+  cursor: ns-resize;
+  user-select: none;
+}
+
+.consoleOutput {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+.consoleLine {
+  padding: 2px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.consoleClearBtn, .consoleCloseBtn {
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 2px;
+  padding: 2px 8px;
+  color: #ddd;
+  font-size: 11px;
+  cursor: pointer;
+  height: 22px;
+}
+
+.consoleClearBtn:hover {
+  background-color: #505050;
+}
+
+.consoleCloseBtn {
+  background-color: #c5534c;
+  border-color: #a94442;
+}
+
+.consoleCloseBtn:hover {
+  background-color: #da190b;
+}
+
+/* ========== COMPONENT BADGES ========== */
+.componentBadge {
+  display: inline-flex;
+  align-items: center;
+  background-color: #094771;
+  border-radius: 2px;
+  padding: 2px 6px;
+  margin: 2px;
+  font-size: 11px;
+  gap: 4px;
+}
+
+.componentRemoveBtn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* ========== SCROLLBARS (Dark Theme) ========== */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #505050;
+}
+
+/* ========== EMPTY STATE ========== */
+.emptyState {
+  color: #666;
+  text-align: center;
+  padding: 20px;
+  font-size: 12px;
+}
+
+/* ========== DRAG HANDLE ========== */
+.consoleResizeHandle {
+  height: 4px;
+  background-color: #3e3e42;
+  cursor: ns-resize;
+  position: relative;
+}
+
+.consoleResizeHandle:hover {
+  background-color: #007acc;
+}
+
