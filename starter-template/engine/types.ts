@@ -1,8 +1,13 @@
 /**
- * Core types for the game engine
+ * Core types for the ReGame runtime.
+ *
+ * These are consumed both by the engine code and by the editor to provide
+ * authoring-time hints for Kaplay-style scripts.
  */
 
-import type { SharedValue } from 'react-native-reanimated';
+export interface SharedValue<T = number> {
+  value: T;
+}
 
 export interface Vec2 {
   x: number;
@@ -25,7 +30,7 @@ export interface TransformComponent extends Component {
   pos: AnimatedVec2;
   scale: Vec2;
   rotation: number;
-  visible: SharedValue<number>; // 1 = visible, 0 = hidden
+  visible: SharedValue<number>;
 }
 
 export interface BodyComponent extends Component {
@@ -33,7 +38,7 @@ export interface BodyComponent extends Component {
   velocity: Vec2;
   acceleration: Vec2;
   mass: number;
-  isStatic?: boolean; // Static objects don't move
+  isStatic?: boolean;
 }
 
 export interface RectComponent extends Component {
@@ -53,50 +58,82 @@ export type CollisionShape = 'rect' | 'circle';
 
 export interface AreaComponent extends Component {
   id: 'area';
-  shape: CollisionShape;
+  shape?: CollisionShape | null;
   width?: number;
   height?: number;
   radius?: number;
   offset?: Vec2;
-  scale?: number;
+  scale?: Vec2;
+  cursor?: string | null;
+  collisionIgnore?: string[];
+  restitution?: number;
+  friction?: number;
 }
 
-export type CollisionCallback = (other: any) => void;
+export type KnownComponent =
+  | TransformComponent
+  | BodyComponent
+  | RectComponent
+  | CircleComponent
+  | AreaComponent;
 
-export interface CollisionEvent {
-  other: any;
-  isColliding: boolean;
+export type ComponentId = KnownComponent['id'] | (string & {});
+
+export interface ComponentMap {
+  transform: TransformComponent;
+  body: BodyComponent;
+  rect: RectComponent;
+  circle: CircleComponent;
+  area: AreaComponent;
+  [key: string]: Component;
 }
+
+export type CollisionCallback = (other: GameObject) => void;
 
 export interface GameObject {
-  id: string;
-  tags: string[];
+  readonly id: string;
+  readonly tags: string[];
   components: Map<string, Component>;
-  
-  // Component getters
-  get<T extends Component>(id: string): T | undefined;
+
+  get<T extends keyof ComponentMap>(id: T): ComponentMap[T] | undefined;
+  get<T = Component>(id: string): T | undefined;
   has(id: string): boolean;
-  
-  // Tag methods
+  add(component: Component): this;
+  addTag(tag: string): this;
   hasTag(tag: string): boolean;
-  
-  // Collision event handlers
   onCollide(tag: string, callback: CollisionCallback): void;
   onCollideUpdate(tag: string, callback: CollisionCallback): void;
   onCollideEnd(tag: string, callback: CollisionCallback): void;
-  
-  // Update
   update(dt: number): void;
   destroy(): void;
 }
 
 export type ComponentFactory = (...args: any[]) => Component;
 
+export type GameKey =
+  | 'left'
+  | 'right'
+  | 'up'
+  | 'down'
+  | 'space'
+  | 'enter'
+  | 'shift'
+  | 'ctrl'
+  | 'alt'
+  | string;
+
 export interface GameContext {
   add(components: (Component | string)[]): GameObject;
-  destroy(obj: any): void; // Accept any GameObject implementation
+  destroy(obj: GameObject): void;
   get(tag: string): GameObject[];
   update(dt: number): void;
   readonly objects: GameObject[];
+  onKeyDown(key: GameKey, callback: () => void): void;
+  onKeyPress(key: GameKey, callback: () => void): void;
+  onKeyRelease(key: GameKey, callback: () => void): void;
+  isKeyDown(key: GameKey): boolean;
+  scene(name: string, fn: (ctx: GameContext) => void): void;
+  go(sceneName: string): void;
+  getCurrentScene(): string | null;
 }
 

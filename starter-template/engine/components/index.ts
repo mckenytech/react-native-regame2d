@@ -1,5 +1,6 @@
 import { makeMutable } from 'react-native-reanimated';
 import type {
+  AreaComponent,
   BodyComponent,
   CircleComponent,
   RectComponent,
@@ -101,21 +102,35 @@ export function area(options: {
   width?: number;
   height?: number;
   radius?: number;
-  offset?: { x: number; y: number };
-  scale?: number;
-} = {}): any {
+  offset?: Vec2;
+  scale?: number | Vec2;
+  cursor?: string | null;
+  collisionIgnore?: string[];
+  restitution?: number;
+  friction?: number;
+} = {}): AreaComponent {
+  const normalizedScale: Vec2 =
+    typeof options.scale === 'number'
+      ? { x: options.scale, y: options.scale }
+      : options.scale ?? { x: 1, y: 1 };
   const normalizedShape =
     typeof options.shape === 'string' && options.shape.toLowerCase() === 'auto'
-      ? undefined
-      : options.shape;
+      ? null
+      : options.shape ?? null;
+  const normalizedOffset: Vec2 = options.offset ?? { x: 0, y: 0 };
+
   return {
     id: 'area',
     shape: normalizedShape,
     width: options.width,
     height: options.height,
     radius: options.radius,
-    offset: options.offset ?? { x: 0, y: 0 },
-    scale: options.scale ?? 1,
+    offset: normalizedOffset,
+    scale: normalizedScale,
+    cursor: options.cursor ?? null,
+    collisionIgnore: options.collisionIgnore ?? [],
+    restitution: options.restitution,
+    friction: options.friction,
   };
 }
 

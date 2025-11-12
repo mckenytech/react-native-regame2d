@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import './ScriptEditor.css';
+import { scriptTypeDefinitions } from '../monaco/scriptTypeDefinitions';
+
+let extraLibRegistered = false;
 
 export default function ScriptEditor({ isOpen, onClose, onSave, scriptName, initialCode }) {
   const createDefaultTemplate = (name = 'Script') => {
@@ -68,6 +71,14 @@ export function onCollision(other) {
       allowJs: true,
       typeRoots: ["node_modules/@types"]
     });
+
+    if (!extraLibRegistered) {
+      monaco.languages.typescript.javascriptDefaults.addExtraLib(
+        scriptTypeDefinitions,
+        'file:///regame-script.d.ts'
+      );
+      extraLibRegistered = true;
+    }
 
     editor.onKeyDown((event) => {
       if ((event.ctrlKey || event.metaKey) && event.keyCode === monaco.KeyCode.KEY_S) {
