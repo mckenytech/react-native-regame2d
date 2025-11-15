@@ -18,11 +18,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // List directory
   listDirectory: (path) => ipcRenderer.invoke('list-directory', path),
+  createDirectory: (path) => ipcRenderer.invoke('create-directory', path),
   
   // File operations
   saveFile: (filePath, content) => ipcRenderer.invoke('save-file', filePath, content),
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  readBinaryFile: (filePath) => ipcRenderer.invoke('read-binary-file', filePath),
   listScenes: (projectPath) => ipcRenderer.invoke('list-scenes', projectPath),
+  saveSpriteAsset: (payload) => ipcRenderer.invoke('save-sprite-asset', payload),
   
   // Game running
   installDependencies: (projectPath) => ipcRenderer.invoke('install-dependencies', projectPath),

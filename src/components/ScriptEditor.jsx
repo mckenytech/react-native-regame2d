@@ -4,6 +4,7 @@ import './ScriptEditor.css';
 import { scriptTypeDefinitions } from '../monaco/scriptTypeDefinitions';
 
 let extraLibRegistered = false;
+let thisCompletionProvider = null;
 
 export default function ScriptEditor({ isOpen, onClose, onSave, scriptName, initialCode }) {
   const createDefaultTemplate = (name = 'Script') => {
@@ -80,6 +81,136 @@ export function onCollision(other) {
       extraLibRegistered = true;
     }
 
+    if (!thisCompletionProvider) {
+      const suggestions = [
+        {
+          label: 'id',
+          kind: monaco.languages.CompletionItemKind.Field,
+          insertText: 'id',
+          detail: 'string',
+          documentation: 'Unique identifier for this GameObject.',
+        },
+        {
+          label: 'tags',
+          kind: monaco.languages.CompletionItemKind.Field,
+          insertText: 'tags',
+          detail: 'string[]',
+          documentation: 'Readonly array of tags applied to this GameObject.',
+        },
+        {
+          label: 'components',
+          kind: monaco.languages.CompletionItemKind.Field,
+          insertText: 'components',
+          detail: 'Map<string, Component>',
+          documentation: 'Map of components currently attached to this GameObject.',
+        },
+        {
+          label: 'get',
+          kind: monaco.languages.CompletionItemKind.Method,
+          insertText: "get('${1:componentId}')",
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: "(id) => component",
+          documentation: 'Retrieve a component by id (e.g. this.get("body")).',
+        },
+        {
+          label: 'has',
+          kind: monaco.languages.CompletionItemKind.Method,
+          insertText: "has('${1:componentId}')",
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: '(id) => boolean',
+          documentation: 'Check if this GameObject has a component by id.',
+        },
+        {
+          label: 'add',
+          kind: monaco.languages.CompletionItemKind.Method,
+          insertText: 'add(${1:component})',
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: '(component) => GameObject',
+          documentation: 'Attach a new component to this GameObject.',
+        },
+        {
+          label: 'addTag',
+          kind: monaco.languages.CompletionItemKind.Method,
+          insertText: "addTag('${1:tag}')",
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: '(tag) => GameObject',
+          documentation: 'Apply a tag to this GameObject.',
+        },
+        {
+          label: 'hasTag',
+          kind: monaco.languages.CompletionItemKind.Method,
+          insertText: "hasTag('${1:tag}')",
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: '(tag) => boolean',
+          documentation: 'Check whether this GameObject has a given tag.',
+        },
+        {
+          label: 'onCollide',
+          kind: monaco.languages.CompletionItemKind.Method,
+          insertText: "onCollide('${1:tag}', (${2:other}) => {\n  ${0}\n})",
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: '(tag, handler) => void',
+          documentation: 'Register a one-time collision start handler against a tag.',
+        },
+        {
+          label: 'onCollideUpdate',
+          kind: monaco.languages.CompletionItemKind.Method,
+          insertText: "onCollideUpdate('${1:tag}', (${2:other}) => {\n  ${0}\n})",
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: '(tag, handler) => void',
+          documentation: 'Register a per-frame collision update handler against a tag.',
+        },
+        {
+          label: 'onCollideEnd',
+          kind: monaco.languages.CompletionItemKind.Method,
+          insertText: "onCollideEnd('${1:tag}', (${2:other}) => {\n  ${0}\n})",
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: '(tag, handler) => void',
+          documentation: 'Register a collision end handler against a tag.',
+        },
+        {
+          label: 'destroy',
+          kind: monaco.languages.CompletionItemKind.Method,
+          insertText: 'destroy()',
+          detail: '() => void',
+          documentation: 'Destroy this GameObject and clean up its components.',
+        },
+        {
+          label: 'update',
+          kind: monaco.languages.CompletionItemKind.Method,
+          insertText: 'update(${1:dt})',
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: '(dt) => void',
+          documentation: 'Invoke the GameObject update loop manually.',
+        },
+      ];
+
+      thisCompletionProvider = monaco.languages.registerCompletionItemProvider('javascript', {
+        triggerCharacters: ['.'],
+        provideCompletionItems(model, position) {
+          const lineContent = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+          if (!/this\.\w*$/.test(lineContent)) {
+            return { suggestions: [] };
+          }
+
+          const wordInfo = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: wordInfo.startColumn,
+            endColumn: wordInfo.endColumn,
+          };
+
+          return {
+            suggestions: suggestions.map((item) => ({
+              ...item,
+              range,
+            })),
+          };
+        },
+      });
+    }
+
     editor.onKeyDown((event) => {
       if ((event.ctrlKey || event.metaKey) && event.keyCode === monaco.KeyCode.KEY_S) {
         event.preventDefault();
@@ -148,7 +279,7 @@ export function onCollision(other) {
 
         <div className="scriptEditorFooter">
           <span className="scriptEditorHint">
-            💡 Tip: Use <code>obj</code> to access this GameObject, <code>ctx</code> for game context
+            💡 Tip: Use <code>this</code> to access the GameObject, <code>ctx</code> for game context helpers
           </span>
         </div>
       </div>

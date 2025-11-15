@@ -2,7 +2,67 @@
  * Generates JavaScript game code from editor GameObject data
  */
 
-export function generateSceneCode(sceneName, gameObjects, existingCode = '') {
+export function generateSceneCode(
+  sceneName,
+  gameObjects,
+  existingOrViewport = '',
+  maybeExistingCode = '',
+) {
+  const defaultViewport = { width: 360, height: 640 };
+  let viewport = { ...defaultViewport };
+  let existingCode = '';
+
+  if (typeof existingOrViewport === 'string' || existingOrViewport === undefined) {
+    existingCode = existingOrViewport || '';
+  } else if (existingOrViewport && typeof existingOrViewport === 'object') {
+    viewport = {
+      width: existingOrViewport.width ?? defaultViewport.width,
+      height: existingOrViewport.height ?? defaultViewport.height,
+    };
+    existingCode = typeof maybeExistingCode === 'string' ? maybeExistingCode : '';
+  }
+
+  if (!existingCode && typeof existingOrViewport === 'string' && typeof maybeExistingCode === 'string') {
+    existingCode = maybeExistingCode;
+  }
+
+  const viewportWidth = viewport.width ?? defaultViewport.width;
+  const viewportHeight = viewport.height ?? defaultViewport.height;
+  const minViewportDimension = Math.min(viewportWidth, viewportHeight) || defaultViewport.width;
+
+  const roundFactor = (value) => Math.round(value * 10000) / 10000;
+  const isZero = (value) => Math.abs(value) < 1e-6;
+
+  const formatDimensionExpr = (factor, axis, dimensionValue = null, baseDimension = null) => {
+    const axisProp = axis === 'width' ? 'width' : 'height';
+    if (dimensionValue != null && baseDimension) {
+      if (dimensionValue === 0) return '0';
+      if (dimensionValue === baseDimension) return `viewport.${axisProp}`;
+      if (dimensionValue === -baseDimension) return `-viewport.${axisProp}`;
+      return `(viewport.${axisProp} * ${dimensionValue} / ${baseDimension})`;
+    }
+
+    const rounded = roundFactor(factor);
+    if (isZero(rounded)) return '0';
+    if (Math.abs(rounded - 1) < 1e-6) return `viewport.${axisProp}`;
+    if (Math.abs(rounded + 1) < 1e-6) return `-viewport.${axisProp}`;
+    return `viewport.${axisProp} * ${rounded}`;
+  };
+
+  const formatRadiusExpr = (factor) => {
+    const rounded = roundFactor(factor);
+    if (isZero(rounded)) return '0';
+    const baseExpr = 'Math.min(viewport.width, viewport.height)';
+    if (Math.abs(rounded - 1) < 1e-6) return baseExpr;
+    if (Math.abs(rounded + 1) < 1e-6) return `-${baseExpr}`;
+    return `${baseExpr} * ${rounded}`;
+  };
+
+  const formatLiteral = (value) => {
+    const rounded = roundFactor(value);
+    return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+  };
+
   const extractUserBlock = (startMarker, endMarker, fallback = '') => {
     if (!existingCode) return fallback;
     const startIndex = existingCode.indexOf(startMarker);
@@ -33,12 +93,27 @@ export function generateSceneCode(sceneName, gameObjects, existingCode = '') {
     ''
   );
 
+  const flattenNodes = (nodes = []) => {
+    const acc = [];
+    const walk = (node) => {
+      acc.push(node);
+      if (node.children && node.children.length) {
+        node.children.forEach(walk);
+      }
+    };
+    (nodes || []).forEach(walk);
+    return acc;
+  };
+
+  const flattenedObjects = flattenNodes(gameObjects || []);
+
   const imports = [];
   const components = new Set();
+  components.add('pos');
   
   // Analyze what components are used
-  gameObjects.forEach(obj => {
-    obj.components.forEach(comp => {
+  flattenedObjects.forEach(obj => {
+    (obj.components || []).forEach(comp => {
       if (comp.type === 'Transform') {
         components.add('pos');
       } else if (comp.type === 'Shape') {
@@ -51,6 +126,8 @@ export function generateSceneCode(sceneName, gameObjects, existingCode = '') {
         components.add('body');
       } else if (comp.type === 'Area') {
         components.add('area');
+      } else if (comp.type === 'Sprite') {
+        components.add('sprite');
       }
     });
     // Always include area for collision if Physics is present
@@ -59,41 +136,201 @@ export function generateSceneCode(sceneName, gameObjects, existingCode = '') {
     }
   });
   
-  // Build import statement
-  const importList = Array.from(components).join(', ');
-  const importStatement = importList 
-    ? `import { ${importList} } from '../engine';`
-    : `// No components used yet`;
-  
-  // Generate code for each GameObject
-  const gameObjectsCode = gameObjects.map(obj => {
+  const usedIdentifiers = new Set();
+  const usedTags = new Set();
+  const identifierMap = new Map();
+  const tagMap = new Map();
+  const spriteAssetMap = new Map();
+  const usedSpriteIdentifiers = new Set();
+
+  const sanitizeBaseName = (name) =>
+    (name || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, '_')
+      .replace(/_{2,}/g, '_')
+      .replace(/^_+/, '')
+      .replace(/_+$/, '');
+
+  const reserveIdentifier = (base, set) => {
+    let candidate = base;
+    if (!candidate || !/^[a-zA-Z_]/.test(candidate)) {
+      candidate = `node${base ? `_${candidate}` : ''}`;
+    }
+    let suffix = 1;
+    while (set.has(candidate)) {
+      candidate = `${base || 'node'}_${suffix++}`;
+    }
+    set.add(candidate);
+    return candidate;
+  };
+
+  const assignIdentifiers = (nodes = []) => {
+    for (const node of nodes) {
+      const baseName = sanitizeBaseName(node.name);
+      const identifier = reserveIdentifier(baseName, usedIdentifiers);
+      const tagName = reserveIdentifier(baseName, usedTags);
+      identifierMap.set(node, identifier);
+      tagMap.set(node, tagName);
+      assignIdentifiers(node.children || []);
+    }
+  };
+
+  const reserveSpriteIdentifier = (base) => reserveIdentifier(base, usedSpriteIdentifiers);
+
+  const registerSpriteAsset = (imagePath = '') => {
+    if (!imagePath) return null;
+    let normalizedPath = imagePath.replace(/\\/g, '/');
+    if (!normalizedPath.startsWith('.')) {
+      normalizedPath = `../${normalizedPath.replace(/^\/+/, '')}`;
+    }
+    if (spriteAssetMap.has(normalizedPath)) {
+      return spriteAssetMap.get(normalizedPath);
+    }
+    const fileName = normalizedPath.split('/').pop() || 'sprite';
+    const baseName = sanitizeBaseName(fileName.replace(/\.[^/.]+$/, '')) || 'sprite';
+    const identifier = reserveSpriteIdentifier(`${baseName}_sprite`);
+    const info = { identifier, importPath: normalizedPath };
+    spriteAssetMap.set(normalizedPath, info);
+    return info;
+  };
+
+  assignIdentifiers(gameObjects || []);
+
+  const buildComponentsForObject = (obj) => {
     const componentsList = [];
     const transform = obj.transform;
-    
-    // Position (Transform) - always first
-    componentsList.push(`pos(${Math.round(transform.x)}, ${Math.round(transform.y)})`);
-    
-    // Shape components
     const shapeComp = obj.components.find(c => c.type === 'Shape');
+    const spriteComp = obj.components.find(c => c.type === 'Sprite');
+    
+    // transform.x/y represents the anchor point position (not top-left)
+    // Use it directly - the RenderSystem will apply anchor offset
+    const posX = transform.x;
+    const posY = transform.y;
+
+    const posXExpr = formatDimensionExpr(
+      posX / viewportWidth,
+      'width',
+      posX,
+      viewportWidth,
+    );
+    const posYExpr = formatDimensionExpr(
+      posY / viewportHeight,
+      'height',
+      posY,
+      viewportHeight,
+    );
+    componentsList.push(`pos(${posXExpr}, ${posYExpr})`);
+    
+    // Add anchor component if transform has anchor property (only for non-sprites, sprites use originX/originY)
+    if (!spriteComp && transform.anchor && transform.anchor !== 'center') {
+      componentsList.push(`anchor("${transform.anchor}")`);
+      components.add('anchor');
+    }
+    if (spriteComp) {
+      const spriteProps = spriteComp.properties ?? {};
+    const spriteWidthExpr = formatDimensionExpr(
+      transform.width / viewportWidth,
+      'width',
+      transform.width,
+      viewportWidth,
+    );
+    const spriteHeightExpr = formatDimensionExpr(
+      transform.height / viewportHeight,
+      'height',
+      transform.height,
+      viewportHeight,
+    );
+      const options = [];
+      if (spriteProps.dataUrl) {
+        options.push(`dataUri: ${JSON.stringify(spriteProps.dataUrl)}`);
+      }
+      if (spriteProps.previewDataUrl) {
+        options.push(`previewDataUrl: ${JSON.stringify(spriteProps.previewDataUrl)}`);
+      }
+      const originXExpr = formatDimensionExpr(
+        (spriteProps.originX ?? transform.width / 2) / viewportWidth,
+        'width',
+        spriteProps.originX ?? transform.width / 2,
+        viewportWidth,
+      );
+      const originYExpr = formatDimensionExpr(
+        (spriteProps.originY ?? transform.height / 2) / viewportHeight,
+        'height',
+        spriteProps.originY ?? transform.height / 2,
+        viewportHeight,
+      );
+      options.push(`origin: { x: ${originXExpr}, y: ${originYExpr} }`);
+      let spriteCall = '';
+      if (spriteProps.imagePath) {
+        const assetInfo = registerSpriteAsset(spriteProps.imagePath);
+        if (assetInfo) {
+          spriteCall = `sprite(${assetInfo.identifier}, ${spriteWidthExpr}, ${spriteHeightExpr}${
+            options.length ? `, { ${options.join(', ')} }` : ''
+          })`;
+        }
+      }
+      if (!spriteCall) {
+        const dataUri = spriteProps.dataUrl ?? spriteProps.previewDataUrl ?? '';
+        const fallbackOptions = spriteProps.dataUrl || spriteProps.previewDataUrl
+          ? options
+          : options.filter(opt => !opt.startsWith('dataUri'));
+        spriteCall = `sprite(${JSON.stringify(dataUri)}, ${spriteWidthExpr}, ${spriteHeightExpr}${
+          fallbackOptions.length ? `, { ${fallbackOptions.join(', ')} }` : ''
+        })`;
+      }
+      componentsList.push(spriteCall);
+    }
     if (shapeComp) {
       if (shapeComp.shapeType === 'Rectangle') {
-        componentsList.push(
-          `rect(${transform.width}, ${transform.height}, '${shapeComp.color}')`
+        const rectWidthExpr = formatDimensionExpr(
+          transform.width / viewportWidth,
+          'width',
+          transform.width,
+          viewportWidth,
         );
+        const rectHeightExpr = formatDimensionExpr(
+          transform.height / viewportHeight,
+          'height',
+          transform.height,
+          viewportHeight,
+        );
+        componentsList.push(`rect(${rectWidthExpr}, ${rectHeightExpr}, '${shapeComp.color}')`);
       } else if (shapeComp.shapeType === 'Circle') {
-        const radius = Math.round(Math.min(transform.width, transform.height) / 2);
-        componentsList.push(`circle(${radius}, '${shapeComp.color}')`);
+        const radiusFactor = Math.min(transform.width, transform.height) / 2 / minViewportDimension;
+        const radiusExpr = formatRadiusExpr(radiusFactor);
+        componentsList.push(`circle(${radiusExpr}, '${shapeComp.color}')`);
       }
     }
-    
-    // Area component (collision detection)
+
     const areaComp = obj.components.find(c => c.type === 'Area');
-    if (areaComp || obj.components.some(c => c.type === 'Physics')) {
+    const needsArea = !!areaComp || obj.components.some(c => c.type === 'Physics');
+    if (needsArea) {
       const areaOptions = [];
-      const scale = areaComp?.scale || { x: 1, y: 1 };
-      const offset = areaComp?.offset || { x: 0, y: 0 };
-      
       if (areaComp) {
+        const rawScale = areaComp.scale ?? { x: 1, y: 1 };
+        const scaleObj = typeof rawScale === 'number' ? { x: rawScale, y: rawScale } : rawScale;
+        const scaleX = scaleObj.x ?? 1;
+        const scaleY = scaleObj.y ?? 1;
+        const offset = areaComp.offset ?? { x: 0, y: 0 };
+        const defaultWidth = transform.width;
+        const defaultHeight = transform.height;
+        const baseAreaWidth =
+          areaComp.width != null
+            ? areaComp.width
+            : areaComp.radius != null
+              ? areaComp.radius * 2
+              : defaultWidth;
+        const baseAreaHeight =
+          areaComp.height != null
+            ? areaComp.height
+            : areaComp.radius != null
+              ? areaComp.radius * 2
+              : defaultHeight;
+        const effectiveAreaWidth = baseAreaWidth * scaleX;
+        const effectiveAreaHeight = baseAreaHeight * scaleY;
+        const convertedOffsetX = offset.x + effectiveAreaWidth / 2 - defaultWidth / 2;
+        const convertedOffsetY = offset.y + effectiveAreaHeight / 2 - defaultHeight / 2;
+
         const normalizedShape =
           typeof areaComp.shape === 'string'
             ? (areaComp.shape.toLowerCase() === 'auto' ? null : areaComp.shape)
@@ -101,46 +338,94 @@ export function generateSceneCode(sceneName, gameObjects, existingCode = '') {
         if (normalizedShape) {
           areaOptions.push(`shape: '${normalizedShape}'`);
         }
-        if (areaComp.width != null && areaComp.height != null) {
-          areaOptions.push(`width: ${areaComp.width}`);
-          areaOptions.push(`height: ${areaComp.height}`);
+        if (areaComp.width != null) {
+          const widthExpr = formatDimensionExpr(
+            areaComp.width / viewportWidth,
+            'width',
+            areaComp.width,
+            viewportWidth,
+          );
+          areaOptions.push(`width: ${widthExpr}`);
+        }
+        if (areaComp.height != null) {
+          const heightExpr = formatDimensionExpr(
+            areaComp.height / viewportHeight,
+            'height',
+            areaComp.height,
+            viewportHeight,
+          );
+          areaOptions.push(`height: ${heightExpr}`);
         }
         if (areaComp.radius != null) {
-          areaOptions.push(`radius: ${areaComp.radius}`);
+          const radiusExpr = formatRadiusExpr(areaComp.radius / minViewportDimension);
+          areaOptions.push(`radius: ${radiusExpr}`);
         }
-        if (scale.x !== 1 || scale.y !== 1) {
-          areaOptions.push(`scale: { x: ${scale.x}, y: ${scale.y} }`);
-        }
-        if (offset.x !== 0 || offset.y !== 0) {
-          areaOptions.push(`offset: { x: ${offset.x}, y: ${offset.y} }`);
+        if (scaleX !== 1 || scaleY !== 1) {
+          areaOptions.push(`scale: { x: ${formatLiteral(scaleX)}, y: ${formatLiteral(scaleY)} }`);
         }
         if (areaComp.collisionIgnore && areaComp.collisionIgnore.length > 0) {
           const tags = areaComp.collisionIgnore.map(tag => `'${tag}'`).join(', ');
           areaOptions.push(`collisionIgnore: [${tags}]`);
         }
         if (areaComp.restitution != null && areaComp.restitution !== 0) {
-          areaOptions.push(`restitution: ${areaComp.restitution}`);
+          areaOptions.push(`restitution: ${formatLiteral(areaComp.restitution)}`);
         }
         if (areaComp.friction != null && areaComp.friction !== 1) {
-          areaOptions.push(`friction: ${areaComp.friction}`);
+          areaOptions.push(`friction: ${formatLiteral(areaComp.friction)}`);
+        }
+        const offsetXExpr = formatDimensionExpr(
+          convertedOffsetX / viewportWidth,
+          'width',
+          convertedOffsetX,
+          viewportWidth,
+        );
+        const offsetYExpr = formatDimensionExpr(
+          convertedOffsetY / viewportHeight,
+          'height',
+          convertedOffsetY,
+          viewportHeight,
+        );
+        if (offsetXExpr !== '0' || offsetYExpr !== '0') {
+          areaOptions.push(`offset: { x: ${offsetXExpr}, y: ${offsetYExpr} }`);
         }
       }
-      
-      const areaCall = areaOptions.length > 0
-        ? `area({ ${areaOptions.join(', ')} })`
-        : 'area()';
+
+      const areaCall =
+        areaOptions.length > 0 ? `area({ ${areaOptions.join(', ')} })` : 'area()';
       componentsList.push(areaCall);
     }
-    
-    // Physics component
+
     const physicsComp = obj.components.find(c => c.type === 'Physics');
     if (physicsComp) {
       const physicsProps = [];
       if (physicsComp.mass !== 1) {
-        physicsProps.push(`mass: ${physicsComp.mass}`);
+        physicsProps.push(`mass: ${formatLiteral(physicsComp.mass)}`);
       }
       if (physicsComp.gravity === false) {
         physicsProps.push(`gravity: false`);
+      }
+      if (physicsComp.isStatic) {
+        physicsProps.push(`isStatic: true`);
+      }
+      if (
+        physicsComp.velocity &&
+        (!isZero(physicsComp.velocity.x) || !isZero(physicsComp.velocity.y))
+      ) {
+        physicsProps.push(
+          `velocity: { x: ${formatLiteral(physicsComp.velocity.x)}, y: ${formatLiteral(
+            physicsComp.velocity.y,
+          )} }`,
+        );
+      }
+      if (
+        physicsComp.acceleration &&
+        (!isZero(physicsComp.acceleration.x) || !isZero(physicsComp.acceleration.y))
+      ) {
+        physicsProps.push(
+          `acceleration: { x: ${formatLiteral(physicsComp.acceleration.x)}, y: ${formatLiteral(
+            physicsComp.acceleration.y,
+          )} }`,
+        );
       }
       if (physicsProps.length > 0) {
         componentsList.push(`body({ ${physicsProps.join(', ')} })`);
@@ -148,74 +433,118 @@ export function generateSceneCode(sceneName, gameObjects, existingCode = '') {
         componentsList.push('body()');
       }
     }
-    
-    // Tag (for identification)
-    const tag = obj.name.toLowerCase().replace(/\s+/g, '_');
+
+    const tag = tagMap.get(obj) || 'node';
     componentsList.push(`"${tag}"`);
-    
-    const indent = '  ';
-    const componentsStr = componentsList.map(c => `${indent}  ${c}`).join(',\n');
-    
-    let objectCode = `${indent}// ${obj.name}\n${indent}const ${tag} = ctx.add([\n${componentsStr}\n${indent}]);`;
-    
-    // Script component - add as a KAPLAY-style custom component!
+
+    return componentsList;
+  };
+
+  const generateObjectBlock = (obj, parentVar, depth = 1) => {
+    const indent = '  '.repeat(depth);
+    const innerIndent = `${indent}  `;
+    const varName = identifierMap.get(obj) || 'node';
+    const tag = tagMap.get(obj) || 'node';
+    const componentsList = buildComponentsForObject(obj);
+    const componentsStr = componentsList.map(c => `${innerIndent}${c}`).join(',\n');
+    const addCall = parentVar
+      ? `${parentVar}.addChild([\n${componentsStr}\n${indent}])`
+      : `ctx.add([\n${componentsStr}\n${indent}])`;
+
+    const lines = [];
+
     const scriptComp = obj.components.find(c => c.type === 'Script');
+    let scriptVarName = '';
     if (scriptComp && scriptComp.code) {
-      // Extract any code BEFORE the update() function (setup code, variables, etc.)
-      const exportIndex = scriptComp.code.indexOf('export function update');
-      const setupCodeRaw = exportIndex !== -1
-        ? scriptComp.code.slice(0, exportIndex)
-        : '';
-      const setupCode = setupCodeRaw
-        .split('\n')
-        .map(line => line.replace(/\r$/, ''))
-        .join('\n')
-        .trim();
-      
-      // Extract the body of the update() function
-      const updateMatch = scriptComp.code.match(/export\s+function\s+update\s*\(([^)]*)\)\s*\{([\s\S]*?)\r?\n\}/);
+      const normalizedCode = scriptComp.code.replace(/\r/g, '');
+      scriptVarName = `${varName}_script`;
+      const updateMatch = normalizedCode.match(
+        /export\s+function\s+update\s*\(([^)]*)\)\s*\{([\s\S]*?)\n\}/,
+      );
+
       if (updateMatch && updateMatch[2].trim()) {
-        // Get the parameters (e.g., "dt" or "obj, ctx")
         const params = updateMatch[1].trim();
-        const updateBody = updateMatch[2];
-        
-        // Create a KAPLAY-style custom component function
-        // We need to use a regular function (not arrow) so we can bind 'this' to the GameObject
-        const scriptComponentCode = `
-${indent}// Custom script component for ${obj.name}
-${indent}const ${tag}_script = function() {
-${indent}  const self = this; // Capture reference to GameObject
-${setupCode ? setupCode.split('\n').filter(line => line.trim() && !line.includes('// Script')).map(line => `${indent}  ${line.trim()}`).join('\n') + '\n' : ''}${indent}  return {
-${indent}    id: "${tag}_script",
-${indent}    // Bind update to the GameObject so 'this' refers to the GameObject
-${indent}    update: function(${params}) {
-${updateBody.split('\n').map(line => `${indent}    ${line}`).join('\n')}
-${indent}    }.bind(self)
-${indent}  };
-${indent}};`;
-        // Insert the component before the object creation
-        objectCode = scriptComponentCode + '\n' + objectCode;
-        
-        // Add the script component to the object (before the closing bracket)
-        // Call the script component AFTER creating the GameObject so we can bind 'this'
-        const lastBracket = objectCode.lastIndexOf('\n' + indent + ']);');
-        if (lastBracket !== -1) {
-          // First, close the GameObject creation without the script
-          objectCode = objectCode.substring(0, lastBracket) + `\n${indent}]);`;
-          // Then add the script component with proper 'this' binding
-          objectCode += `\n${indent}${tag}.add(${tag}_script.call(${tag}));`;
-        }
+        const updateBody = updateMatch[2].trim();
+        const setupLines = normalizedCode
+          .slice(0, updateMatch.index)
+          .split('\n')
+          .map(line => line.trimEnd())
+          .filter(line => line.trim().length > 0 && !line.includes('// Script'));
+        const setupBlock = setupLines.length
+          ? `${setupLines.map(line => `${indent}  ${line}`).join('\n')}\n`
+          : '';
+        const updateBlock = indentBlock(updateBody, `${indent}      `);
+        lines.push(
+          `${indent}// Custom script component for ${obj.name}`,
+          `${indent}const ${scriptVarName} = function() {`,
+          `${indent}  const self = this; // Capture reference to GameObject`,
+          `${setupBlock}${indent}  return {`,
+          `${indent}    id: "${tag}_script",`,
+          `${indent}    // Bind update to the GameObject so 'this' refers to the GameObject`,
+          `${indent}    update: function(${params}) {`,
+          `${updateBlock}`,
+          `${indent}    }.bind(self)`,
+          `${indent}  };`,
+          `${indent}};`,
+        );
+      } else if (normalizedCode.trim().length) {
+        const setupLines = normalizedCode
+          .split('\n')
+          .map(line => line.trimEnd())
+          .filter(line => line.trim().length > 0 && !line.startsWith('// Script'));
+        const setupBlock = setupLines.length
+          ? `${setupLines.map(line => `${indent}  ${line}`).join('\n')}\n`
+          : '';
+        lines.push(
+          `${indent}// Custom script component for ${obj.name}`,
+          `${indent}const ${scriptVarName} = function() {`,
+          `${indent}  const self = this; // Capture reference to GameObject`,
+          `${setupBlock}${indent}  return {`,
+          `${indent}    id: "${tag}_script"`,
+          `${indent}  };`,
+          `${indent}};`,
+        );
+      } else {
+        scriptVarName = '';
       }
-      
-      // TODO: Handle onCollision() similarly when collision system is ready
     }
-    
-    return objectCode;
-  }).join('\n\n');
+
+    lines.push(`${indent}// ${obj.name}`);
+    lines.push(`${indent}const ${varName} = ${addCall};`);
+    if (scriptVarName) {
+      lines.push(`${indent}${varName}.add(${scriptVarName}.call(${varName}));`);
+    }
+
+    for (const child of obj.children || []) {
+      const childBlock = generateObjectBlock(child, varName, depth);
+      if (childBlock) {
+        lines.push('');
+        lines.push(childBlock);
+      }
+    }
+
+    return lines.join('\n');
+  };
+
+  const gameObjectsCode = (gameObjects || [])
+    .map(obj => generateObjectBlock(obj, null, 1))
+    .filter(Boolean)
+    .join('\n\n');
+  
+  const importList = Array.from(components).join(', ');
+  const importStatement = importList 
+    ? `import { ${importList} } from '../engine';`
+    : `// No components used yet`;
+  const spriteImportLines = Array.from(spriteAssetMap.values()).map(
+    ({ identifier, importPath }) => `import ${identifier} from '${importPath}';`
+  );
+  const autoImportsBlock = [importStatement, ...spriteImportLines].filter(Boolean).join('\n') || '';
   
   // Build complete scene function
-  const autoSceneBlock = gameObjects.length > 0
-    ? gameObjectsCode
+  const viewportLine = '  const viewport = ctx.getViewport();';
+
+  const autoSceneBlock = flattenedObjects.length > 0
+    ? `${viewportLine}\n\n${gameObjectsCode}`
     : '  // Add GameObjects using the editor!';
 
   const userImportsBlock =
@@ -227,15 +556,17 @@ ${indent}};`;
   const code = `// ========================= REGAME LEVEL =========================
 // Generated + user-safe regions for Cursor/Codegen
 
+import type { GameContext } from '../engine';
+
 /* <<<AUTO-GENERATED:IMPORTS:START>>> */
-${importStatement}
+${autoImportsBlock}
 /* <<<AUTO-GENERATED:IMPORTS:END>>> */
 
 /* <<<USER-IMPORTS:START>>> */
 ${userImportsBlock}
 /* <<<USER-IMPORTS:END>>> */
 
-export function ${sceneName}(ctx) {
+export function ${sceneName}(ctx: GameContext): void {
   /* <<<AUTO-GENERATED:SCENE:START>>> */
 ${autoSceneBlock}
   /* <<<AUTO-GENERATED:SCENE:END>>> */

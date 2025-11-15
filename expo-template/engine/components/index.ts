@@ -1,11 +1,12 @@
 import { makeMutable } from 'react-native-reanimated';
 import type {
-  AreaComponent,
-  BodyComponent,
-  CircleComponent,
-  RectComponent,
-  TransformComponent,
-  Vec2,
+    AreaComponent,
+    BodyComponent,
+    CircleComponent,
+    RectComponent,
+    SpriteComponent,
+    TransformComponent,
+    Vec2,
 } from '../types';
 
 /**
@@ -42,6 +43,17 @@ export function rotate(angle: number): Partial<TransformComponent> {
     id: 'transform',
     rotation: angle,
   } as TransformComponent;
+}
+
+/**
+ * Anchor component - sets the anchor point for rendering
+ * Anchor values: "topleft" | "top" | "topright" | "left" | "center" | "right" | "botleft" | "bot" | "botright"
+ */
+export function anchor(anchorValue: string): Partial<TransformComponent> {
+  return {
+    id: 'transform',
+    anchor: anchorValue,
+  } as Partial<TransformComponent>;
 }
 
 /**
@@ -90,6 +102,25 @@ export function circle(radius: number, color = '#000000'): CircleComponent {
     id: 'circle',
     radius,
     color,
+  };
+}
+
+export function sprite(
+  source: number | string,
+  width: number,
+  height: number,
+  options: {
+    origin?: Vec2;
+    dataUri?: string;
+  } = {},
+): SpriteComponent {
+  return {
+    id: 'sprite',
+    source,
+    width,
+    height,
+    origin: options.origin ?? { x: width / 2, y: height / 2 },
+    dataUri: options.dataUri,
   };
 }
 

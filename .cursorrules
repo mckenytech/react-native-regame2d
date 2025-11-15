@@ -50,6 +50,14 @@ player.add(customComponent.call(player));
 - Use `.call(gameObject)` to bind `this`
 - See `src/utils/codeGenerator.js` lines 84-123
 
+**Kaplay Fork Reference:**
+- A copy of the Kaplay fork is available at `kaplayfork/kaplay/` for reference and inspiration
+- Use this when implementing new components, systems, or features that mirror Kaplay's API
+- Key locations:
+  - Component definitions: `kaplayfork/kaplay/src/ecs/`
+  - Core systems: `kaplayfork/kaplay/src/core/`
+  - Examples: `kaplayfork/kaplay/examples/`
+
 ### 4. Expo Dev Build Workflow (NOT Expo Go)
 **User is using Expo Dev Build**, not Expo Go:
 - ✅ Use: `npx expo run:android` (builds native app once)
@@ -130,6 +138,10 @@ regame-engine/
 │   ├── scenes/          # Generated scene JS files
 │   ├── App.js           # Main entry point
 │   └── package.json     # Dependencies (SDK 54)
+├── kaplayfork/          # Kaplay fork reference (for inspiration)
+│   └── kaplay/          # Original Kaplay source code
+│       ├── src/         # Source code (components, systems, core)
+│       └── examples/    # Example games and demos
 └── RegameProjects/      # User projects (e.g., MyGame23/)
     └── MyGame23/        # EXISTING project (also needs updates!)
 ```

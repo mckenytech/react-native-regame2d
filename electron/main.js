@@ -4,6 +4,8 @@ const fs = require('fs-extra');
 const { spawn, execSync } = require('child_process');
 const http = require('http');
 
+const toForwardSlashPath = (value) => value.replace(/\\/g, '/');
+
 let mainWindow;
 let gameProcess = null;
 let currentGameProject = null;
@@ -512,8 +514,26 @@ Open this project in ReGame Editor to start building your game!
 // List directory contents
 ipcMain.handle('list-directory', async (event, dirPath) => {
   try {
-    const contents = await fs.readdir(dirPath);
-    return { success: true, contents };
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const contents = await Promise.all(entries.map(async (entry) => {
+      const entryPath = path.join(dirPath, entry.name);
+      const isDirectory = entry.isDirectory();
+      let type = 'file';
+      if (isDirectory) {
+        type = 'directory';
+      }
+      return {
+        name: entry.name,
+        type,
+      };
+    }));
+    const sorted = contents.sort((a, b) => {
+      if (a.type === b.type) {
+        return a.name.localeCompare(b.name);
+      }
+      return a.type === 'directory' ? -1 : 1;
+    });
+    return { success: true, contents: sorted };
   } catch (error) {
     return { success: false, message: error.message };
   }
@@ -534,6 +554,53 @@ ipcMain.handle('read-file', async (event, filePath) => {
   try {
     const content = await fs.readFile(filePath, 'utf8');
     return { success: true, content };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('read-binary-file', async (event, filePath) => {
+  try {
+    const content = await fs.readFile(filePath, 'base64');
+    return { success: true, content };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('save-sprite-asset', async (event, payload) => {
+  const { projectPath, name, dataUrl } = payload || {};
+  if (!projectPath || !dataUrl) {
+    return { success: false, message: 'Missing projectPath or dataUrl' };
+  }
+  try {
+    const assetsDir = path.join(projectPath, 'assets', 'sprites');
+    await fs.ensureDir(assetsDir);
+    const safeStem = (name || 'sprite')
+      .trim()
+      .replace(/[^a-z0-9_\-]/gi, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase() || 'sprite';
+    const fileName = `${safeStem}-${Date.now()}.png`;
+    const absolutePath = path.join(assetsDir, fileName);
+
+    const base64Match = dataUrl.match(/^data:image\/png;base64,(.+)$/);
+    const base64Content = base64Match ? base64Match[1] : dataUrl;
+    const buffer = Buffer.from(base64Content, 'base64');
+    await fs.writeFile(absolutePath, buffer);
+
+    const relativePath = toForwardSlashPath(path.relative(projectPath, absolutePath));
+    return { success: true, imagePath: relativePath, previewDataUrl: dataUrl };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('create-directory', async (event, dirPath) => {
+  try {
+    await fs.ensureDir(dirPath);
+    return { success: true };
   } catch (error) {
     return { success: false, message: error.message };
   }

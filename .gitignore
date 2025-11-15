@@ -41,3 +41,21 @@ app-example
 # generated native folders
 /ios
 /android
+/windows
+
+# Old React Native Windows files (no longer used - using Electron now)
+index.windows.js
+jest.config.windows.js
+run-windows-app.ps1
+NuGet.config
+App.js
+app.json
+babel.config.js
+index.js
+
+# Duplicate project folder (actual projects are in C:\Users\...\Documents\RegameProjects)
+/RegameProjects
+
+# Unused old templates (editor uses expo-template/)
+/expo-template-OLD
+/starter-template

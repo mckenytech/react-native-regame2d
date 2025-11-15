@@ -31,6 +31,7 @@ export interface TransformComponent extends Component {
   scale: Vec2;
   rotation: number;
   visible: SharedValue<number>;
+  anchor?: string; // Anchor point: "topleft" | "top" | "topright" | "left" | "center" | "right" | "botleft" | "bot" | "botright"
 }
 
 export interface BodyComponent extends Component {
@@ -54,6 +55,15 @@ export interface CircleComponent extends Component {
   color: string;
 }
 
+export interface SpriteComponent extends Component {
+  id: 'sprite';
+  source: number | string;
+  width: number;
+  height: number;
+  origin?: Vec2;
+  dataUri?: string;
+}
+
 export type CollisionShape = 'rect' | 'circle';
 
 export interface AreaComponent extends Component {
@@ -75,6 +85,7 @@ export type KnownComponent =
   | BodyComponent
   | RectComponent
   | CircleComponent
+  | SpriteComponent
   | AreaComponent;
 
 export type ComponentId = KnownComponent['id'] | (string & {});
@@ -84,6 +95,7 @@ export interface ComponentMap {
   body: BodyComponent;
   rect: RectComponent;
   circle: CircleComponent;
+  sprite: SpriteComponent;
   area: AreaComponent;
   [key: string]: Component;
 }
@@ -94,13 +106,20 @@ export interface GameObject {
   readonly id: string;
   readonly tags: string[];
   components: Map<string, Component>;
+  parent: GameObject | null;
+  children: GameObject[];
 
   get<T extends keyof ComponentMap>(id: T): ComponentMap[T] | undefined;
   get<T = Component>(id: string): T | undefined;
   has(id: string): boolean;
   add(component: Component): this;
+  addChild(components: (Component | string)[]): GameObject;
+  removeChild(child: GameObject): void;
   addTag(tag: string): this;
   hasTag(tag: string): boolean;
+  on(event: string, handler: (this: GameObject, ...args: any[]) => void): void;
+  off(event: string, handler?: (this: GameObject, ...args: any[]) => void): void;
+  trigger(event: string, ...args: any[]): void;
   onCollide(tag: string, callback: CollisionCallback): void;
   onCollideUpdate(tag: string, callback: CollisionCallback): void;
   onCollideEnd(tag: string, callback: CollisionCallback): void;
@@ -123,11 +142,14 @@ export type GameKey =
   | string;
 
 export interface GameContext {
-  add(components: (Component | string)[]): GameObject;
+  add(components: (Component | string)[], parent?: GameObject): GameObject;
   destroy(obj: GameObject): void;
   get(tag: string): GameObject[];
   update(dt: number): void;
   readonly objects: GameObject[];
+  on(event: string, handler: (obj: GameObject, ...args: any[]) => void): () => void;
+  on(event: string, tag: string, handler: (obj: GameObject, ...args: any[]) => void): () => void;
+  off(event: string, handler?: (obj: GameObject, ...args: any[]) => void): void;
   onKeyDown(key: GameKey, callback: () => void): void;
   onKeyPress(key: GameKey, callback: () => void): void;
   onKeyRelease(key: GameKey, callback: () => void): void;
@@ -135,6 +157,8 @@ export interface GameContext {
   scene(name: string, fn: (ctx: GameContext) => void): void;
   go(sceneName: string): void;
   getCurrentScene(): string | null;
+  setViewport(width: number, height: number): void;
+  getViewport(): { width: number; height: number };
 }
 
 

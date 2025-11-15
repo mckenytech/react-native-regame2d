@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { NativeModules, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { GamePad } from './components/GamePad';
@@ -61,6 +61,13 @@ export function Game({
   if (!setupRef.current) {
     // Initialize input system
     contextRef.current.setInputSystem(inputSystemRef.current);
+    contextRef.current.setViewport(width, height);
+    if (__DEV__) {
+      console.log(
+        '[ReGame] GameContext prototype methods:',
+        Object.getOwnPropertyNames(Object.getPrototypeOf(contextRef.current)),
+      );
+    }
     
     // Set up a listener for when objects are added/removed
     const originalAdd = contextRef.current.add.bind(contextRef.current);
@@ -73,6 +80,10 @@ export function Game({
     children(contextRef.current);
     setupRef.current = true;
   }
+
+  useEffect(() => {
+    contextRef.current.setViewport(width, height);
+  }, [width, height]);
 
   // Update function called every frame
   const update = useCallback((dt: number) => {

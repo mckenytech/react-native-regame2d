@@ -147,6 +147,18 @@ body {
   flex-shrink: 0;
 }
 
+.leftPanelSection {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; /* Allow flex children to shrink */
+  border-bottom: 1px solid #3e3e42;
+}
+
+.leftPanelSection:last-child {
+  border-bottom: none;
+}
+
 .panelHeader {
   background-color: #2d2d30;
   padding: 4px 8px;
@@ -155,6 +167,35 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.panelTabs {
+  display: flex;
+  background-color: #232327;
+  border-bottom: 1px solid #3e3e42;
+}
+
+.panelTab {
+  flex: 1;
+  padding: 6px 0;
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.panelTab:hover {
+  background-color: #303036;
+  color: #ddd;
+}
+
+.panelTab.active {
+  background-color: #2d2d32;
+  color: #fff;
+  font-weight: 600;
+  border-bottom: 2px solid #0e639c;
 }
 
 .panelTitle {
@@ -212,6 +253,14 @@ body {
   background-color: #094771;
 }
 
+.componentNode {
+  opacity: 0.9;
+}
+
+.componentNode.disabled {
+  opacity: 0.6;
+}
+
 .treeNode.rootNode {
   font-weight: 600;
   background-color: #2d2d30;
@@ -244,6 +293,12 @@ body {
   flex-shrink: 0;
 }
 
+.treeBadge {
+  margin-left: 6px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 .treeName {
   flex: 1;
   font-size: 12px;
@@ -255,6 +310,56 @@ body {
 
 .treeNode.selected .treeName {
   color: #fff;
+}
+
+.treeNode.drag-over {
+  background-color: rgba(58, 120, 255, 0.15);
+  border-left: 3px solid #3a78ff;
+}
+
+.treeActions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+
+.treeActionIcon {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #444;
+  background-color: #2f2f33;
+  color: #ccc;
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.treeActionIcon:hover {
+  background-color: #3a78ff;
+  border-color: #3a78ff;
+  color: #fff;
+}
+
+.treeChildren {
+  position: relative;
+}
+
+.treeChildrenDropping {
+  border: 1px dashed rgba(58, 120, 255, 0.35);
+  border-radius: 3px;
+  padding-bottom: 4px;
+}
+
+.treeDropHint {
+  margin: 4px 8px 2px 28px;
+  font-size: 10px;
+  color: #6ea8ff;
+  opacity: 0.75;
 }
 
 .treeIndent {
@@ -280,10 +385,6 @@ body {
 
 .treeDeleteBtn:hover {
   color: #ff5555;
-}
-
-.treeChildren {
-  /* Container for child nodes */
 }
 
 .treeEmptyHint {
@@ -369,13 +470,191 @@ body {
   flex-direction: column;
 }
 
-.sceneCanvas {
+.sceneCanvasWrapper {
   flex: 1;
+  position: relative;
+  margin: 8px;
+  overflow: hidden;
+}
+
+.sceneCanvas {
+  width: 100%;
+  height: 100%;
   background-color: #2a2a2a;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
   position: relative;
   overflow: auto;
   border: 2px solid #3e3e42;
-  margin: 8px;
+  cursor: default;
+}
+
+.sceneCanvas.panning {
+  cursor: grab;
+}
+
+.sceneCanvas.panning:active {
+  cursor: grabbing;
+}
+
+.sceneCanvasContent {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.originGuides {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.originAxis {
+  position: absolute;
+  background-color: rgba(233, 69, 96, 0.35);
+}
+
+.originAxisX {
+  top: 0;
+  left: 0;
+  height: 1px;
+  width: 100%;
+}
+
+.originAxisY {
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 100%;
+}
+
+.originLabel {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  background-color: rgba(26, 26, 46, 0.9);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #e94560;
+  letter-spacing: 0.4px;
+}
+
+.resizeHandle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background-color: #0e639c;
+  border: 2px solid #ffffff;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%);
+  z-index: 1500;
+  pointer-events: all;
+}
+
+.resizeHandle:hover {
+  background-color: #1177bb;
+}
+
+.cameraViewport {
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.sceneTools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zoomControls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+}
+
+.zoomButton {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.zoomValue {
+  color: #ccc;
+  font-size: 12px;
+  min-width: 48px;
+  text-align: center;
+}
+
+.zoomResetButton {
+  border: 1px solid #555;
+  background-color: #2d2d30;
+  color: #ccc;
+  padding: 6px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.zoomResetButton:hover {
+  background-color: #3a78ff;
+  border-color: #3a78ff;
+  color: #fff;
+}
+
+.zoomResetButton:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(58, 120, 255, 0.4);
+}
+
+.sceneCanvasScaleLayer {
+  position: relative;
+}
+
+.toolButton {
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  background-color: transparent;
+  color: #bbb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  font-size: 14px;
+}
+
+.toolButton:hover {
+  background-color: #2f2f33;
+  color: #fff;
+}
+
+.toolButton.active {
+  border-color: #3a78ff;
+  background-color: rgba(58, 120, 255, 0.15);
+  color: #fff;
+}
+
+.toolButton.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolIcon {
+  line-height: 1;
 }
 
 /* RIGHT PANEL - Inspector (Narrow) */
@@ -391,7 +670,138 @@ body {
 .inspectorContent {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+}
+
+.fileExplorerActions {
+  display: flex;
+  gap: 4px;
+}
+
+.tinyButton {
+  background: none;
+  border: 1px solid #555;
+  border-radius: 2px;
+  width: 24px;
+  height: 22px;
+  color: #ccc;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.tinyButton:hover {
+  background-color: #3e3e42;
+  color: #fff;
+  border-color: #6a9fb5;
+}
+
+.fileTree {
+  padding: 4px 0;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.fileNode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.fileNode:hover {
+  background-color: #2a2d2e;
+}
+
+.fileNode.selected {
+  background-color: #094771;
+  color: #fff;
+}
+
+.fileNodeArrow {
+  width: 12px;
+  font-size: 10px;
+  color: #858585;
+  text-align: center;
+}
+
+.fileNodeArrow.placeholder {
+  opacity: 0;
+}
+
+.fileNodeIcon {
+  width: 16px;
+  text-align: center;
+}
+
+.fileNodeName {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.componentSection {
+  background-color: #2d2d30;
+  border-radius: 2px;
+  margin-bottom: 2px;
+  overflow: hidden;
+}
+
+.componentHeader {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  cursor: pointer;
+  user-select: none;
+  background-color: #3c3c3c;
+  border-bottom: 1px solid #252526;
+  gap: 6px;
+  font-size: 12px;
+  transition: background-color 0.1s;
+}
+
+.componentHeader:hover {
+  background-color: #404040;
+}
+
+.componentHeader strong {
+  flex: 1;
+  color: #d4d4d4;
+  font-weight: 500;
+}
+
+.sectionToggle {
+  color: #858585;
+  font-size: 10px;
+  width: 12px;
+  display: inline-block;
+  text-align: center;
+  user-select: none;
+}
+
+.removeComponentBtn {
+  background: transparent;
+  border: none;
+  color: #858585;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 2px;
+  opacity: 0.7;
+  transition: all 0.1s;
+}
+
+.removeComponentBtn:hover {
+  background-color: #c5534c;
+  color: #fff;
+  opacity: 1;
 }
 
 /* ========== GAME OBJECTS IN HIERARCHY ========== */
@@ -442,6 +852,597 @@ body {
 .addButton {
   width: 100%;
   margin-top: 4px;
+}
+
+/* ========== STARTUP EXPERIENCE (Menu + Create) ========== */
+.menuContainer,
+.createContainer {
+  position: relative;
+  padding: 48px 32px;
+  background: radial-gradient(120% 120% at 0% 0%, #23273b 0%, #121420 55%, #07080f 100%);
+  color: #e3e6ff;
+  overflow: hidden;
+}
+
+.menuBackdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 15% 10%, rgba(108, 133, 255, 0.32), transparent 70%),
+    radial-gradient(80% 120% at 85% 20%, rgba(255, 114, 185, 0.24), transparent 75%),
+    radial-gradient(100% 120% at 50% 100%, rgba(23, 29, 54, 0.9), rgba(7, 8, 15, 0.95));
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+.menuShell,
+.createShell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
+  min-height: calc(100vh - 96px);
+}
+
+.menuHeader,
+.createHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.menuHeader {
+  padding-bottom: 28px;
+  border-bottom: 1px solid rgba(199, 208, 255, 0.08);
+}
+
+.menuHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.menuLogo {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #6e7dff 0%, #9e58ff 100%);
+  box-shadow: 0 18px 32px rgba(108, 133, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: #fff;
+}
+
+.menuHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.menuTitle {
+  font-size: 26px;
+  font-weight: 700;
+  color: #f5f7ff;
+  letter-spacing: 0.02em;
+}
+
+.menuSubtitle {
+  font-size: 13px;
+  color: rgba(202, 210, 255, 0.8);
+  max-width: 420px;
+  line-height: 1.5;
+}
+
+.menuHeaderRight {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.menuChip {
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(122, 140, 255, 0.14);
+  border: 1px solid rgba(136, 153, 255, 0.3);
+  color: #d7ddff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.menuContent {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px;
+  background: rgba(10, 14, 24, 0.78);
+  border: 1px solid rgba(129, 144, 255, 0.2);
+  border-radius: 20px;
+  box-shadow: 0 24px 48px rgba(6, 9, 20, 0.45);
+  backdrop-filter: blur(14px);
+  min-height: 220px;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(142, 160, 255, 0.5);
+  box-shadow: 0 30px 60px rgba(8, 12, 32, 0.55);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardFooter {
+  margin-top: auto;
+}
+
+.cardIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(122, 140, 255, 0.7) 0%, rgba(255, 126, 190, 0.7) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(112, 131, 255, 0.35);
+}
+
+.cardTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #f5f7ff;
+}
+
+.cardDesc {
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(202, 210, 255, 0.75);
+}
+
+.cardHint {
+  font-size: 11px;
+  color: rgba(188, 198, 255, 0.65);
+  line-height: 1.4;
+}
+
+.menuContainer .button,
+.createContainer .button {
+  border-radius: 999px;
+  height: 38px;
+  padding: 0 22px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  background: rgba(122, 140, 255, 0.16);
+  color: #f5f7ff;
+  box-shadow: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.menuContainer .button:hover,
+.createContainer .button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(110, 130, 255, 0.35);
+}
+
+.menuContainer .buttonPrimary,
+.createContainer .buttonPrimary {
+  background: linear-gradient(135deg, #657aff 0%, #915aff 100%);
+  box-shadow: 0 15px 32px rgba(118, 136, 255, 0.4);
+}
+
+.menuContainer .buttonSecondary,
+.createContainer .buttonSecondary {
+  background: rgba(122, 140, 255, 0.16);
+  border: 1px solid rgba(149, 162, 255, 0.35);
+  box-shadow: none;
+}
+
+.menuContainer .buttonSecondary:hover,
+.createContainer .buttonSecondary:hover {
+  background: rgba(126, 149, 255, 0.28);
+  border-color: rgba(165, 178, 255, 0.55);
+}
+
+.menuContainer .buttonLarge,
+.createContainer .buttonLarge {
+  width: 100%;
+  height: 46px;
+  font-size: 14px;
+}
+
+.menuContainer .input,
+.createContainer .input {
+  width: 100%;
+  background: rgba(6, 10, 20, 0.75);
+  border: 1px solid rgba(129, 144, 255, 0.35);
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: #f1f3ff;
+  font-size: 13px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.menuContainer .input::placeholder,
+.createContainer .input::placeholder {
+  color: rgba(180, 192, 255, 0.55);
+}
+
+.menuContainer .input:focus,
+.createContainer .input:focus {
+  outline: none;
+  border-color: rgba(162, 174, 255, 0.9);
+  box-shadow: 0 0 0 3px rgba(117, 135, 255, 0.2);
+}
+
+.recentProjectsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recentProjectItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(16, 20, 32, 0.65);
+  border: 1px solid transparent;
+  transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.recentProjectItem:hover {
+  background: rgba(24, 30, 52, 0.9);
+  border-color: rgba(148, 162, 255, 0.35);
+  transform: translateX(2px);
+}
+
+.recentProjectInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  flex: 1;
+}
+
+.recentProjectInfo:focus {
+  outline: none;
+}
+
+.recentProjectInfo:focus-visible {
+  box-shadow: 0 0 0 3px rgba(132, 150, 255, 0.45);
+  border-radius: 12px;
+}
+
+.recentProjectName {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f5f7ff;
+}
+
+.recentProjectPath {
+  font-size: 11px;
+  color: rgba(182, 194, 255, 0.7);
+  word-break: break-all;
+}
+
+.recentProjectRemove {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 160, 255, 0.3);
+  background: rgba(20, 24, 40, 0.6);
+  color: rgba(216, 222, 255, 0.8);
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.recentProjectRemove:hover {
+  background: rgba(140, 81, 255, 0.3);
+  border-color: rgba(168, 113, 255, 0.55);
+  transform: rotate(90deg);
+}
+
+.emptyState {
+  font-size: 12px;
+  color: rgba(188, 198, 255, 0.7);
+  padding: 12px 0;
+}
+
+.menuFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(186, 196, 255, 0.65);
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(199, 208, 255, 0.08);
+}
+
+.menuFooter code {
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  color: rgba(232, 237, 255, 0.85);
+  background: rgba(14, 19, 36, 0.8);
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(116, 136, 255, 0.25);
+}
+
+.createHeader {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.backButton {
+  background: rgba(13, 18, 32, 0.65);
+  border: 1px solid rgba(129, 144, 255, 0.35);
+  color: rgba(214, 220, 255, 0.85);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.backButton:hover {
+  background: rgba(25, 30, 52, 0.95);
+  border-color: rgba(152, 167, 255, 0.55);
+  transform: translateX(-1px);
+}
+
+.createHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 540px;
+}
+
+.createTitle {
+  font-size: 24px;
+  color: #f5f7ff;
+  letter-spacing: 0.01em;
+}
+
+.createSubtitle {
+  font-size: 12px;
+  color: rgba(194, 202, 255, 0.75);
+  line-height: 1.5;
+}
+
+.createContent {
+  display: flex;
+  justify-content: center;
+}
+
+.form {
+  width: min(100%, 520px);
+  padding: 32px;
+  background: rgba(10, 15, 26, 0.78);
+  border-radius: 20px;
+  border: 1px solid rgba(129, 144, 255, 0.25);
+  box-shadow: 0 24px 48px rgba(6, 9, 20, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  backdrop-filter: blur(14px);
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(210, 218, 255, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.inputRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.inputWithButton {
+  flex: 1;
+}
+
+.browseButton {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(152, 167, 255, 0.45);
+  background: rgba(21, 25, 42, 0.75);
+  color: rgba(223, 227, 255, 0.9);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.browseButton:hover {
+  background: rgba(30, 36, 60, 0.95);
+  border-color: rgba(176, 189, 255, 0.65);
+  transform: translateY(-1px);
+}
+
+.helpText {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(189, 199, 255, 0.7);
+}
+
+.selectionOverlay {
+  position: absolute;
+  pointer-events: none;
+  z-index: 905;
+  overflow: visible;
+}
+
+.selectionOutline {
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(150, 170, 255, 0.85);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(90, 120, 255, 0.35), 0 0 18px rgba(74, 96, 204, 0.35);
+}
+
+.selectionHandle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ff8a9a 0%, #e94560 100%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 10px rgba(233, 69, 96, 0.55);
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.selectionHandle:hover {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 0 14px rgba(233, 69, 96, 0.75);
+}
+
+.selectionCenterHandle {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(109, 130, 255, 0.2);
+  border: 1px solid rgba(142, 160, 255, 0.65);
+  box-shadow: 0 0 18px rgba(118, 136, 255, 0.45);
+  transform: translate(-50%, -50%);
+  left: 50%;
+  top: 50%;
+  pointer-events: auto;
+  cursor: grab;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.selectionCenterHandle:hover {
+  background: rgba(132, 150, 255, 0.32);
+  border-color: rgba(170, 185, 255, 0.85);
+}
+
+.selectionCenterHandle:active {
+  cursor: grabbing;
+  background: rgba(142, 160, 255, 0.42);
+}
+
+.selectionAxis {
+  position: absolute;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  color: rgba(200, 210, 255, 0.85);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.selectionAxis .axisLine {
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(116, 146, 255, 0.8) 0%, rgba(223, 229, 255, 0.45) 100%);
+}
+
+.selectionAxis .axisLabel {
+  background: rgba(20, 24, 40, 0.88);
+  border: 1px solid rgba(126, 150, 255, 0.4);
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin-left: 6px;
+  box-shadow: 0 6px 12px rgba(18, 24, 44, 0.45);
+}
+
+.selectionAxis .axisArrow {
+  width: 0;
+  height: 0;
+}
+
+.selectionAxis.axisX {
+  top: -26px;
+  left: 0;
+}
+
+.selectionAxis.axisX .axisLine {
+  height: 2px;
+  flex: 1;
+}
+
+.selectionAxis.axisX .axisArrow {
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 9px solid rgba(132, 150, 255, 0.85);
+  margin-left: 8px;
+}
+
+.selectionAxis.axisY {
+  left: -26px;
+  top: 0;
+  flex-direction: column;
+}
+
+.selectionAxis.axisY .axisLine {
+  width: 2px;
+  flex: 1;
+  background: linear-gradient(180deg, rgba(116, 146, 255, 0.8) 0%, rgba(223, 229, 255, 0.45) 100%);
+}
+
+.selectionAxis.axisY .axisArrow {
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 9px solid rgba(132, 150, 255, 0.85);
+  margin-top: 8px;
+}
+
+.selectionAxis.axisY .axisLabel {
+  margin-left: 0;
+  margin-top: 6px;
 }
 
 /* ========== PROPERTY FIELDS (Compact) ========== */
@@ -652,5 +1653,523 @@ body {
 .scriptPreview code {
   color: #4ec9b0;
   font-family: 'Consolas', monospace;
+}
+
+.filePathRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #2d2d30;
+  border: 1px solid #3e3e42;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: #ccc;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ========== INPUT MODAL ========== */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.inputModal {
+  background-color: #252526;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  min-width: 400px;
+  max-width: 600px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.modalHeader {
+  padding: 12px 16px;
+  border-bottom: 1px solid #3e3e42;
+  background-color: #2d2d30;
+}
+
+.modalTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ccc;
+  margin: 0;
+}
+
+.modalBody {
+  padding: 16px;
+}
+
+.modalMessage {
+  font-size: 12px;
+  color: #ccc;
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+}
+
+.modalInput {
+  width: 100%;
+  padding: 6px 8px;
+  background-color: #1e1e1e;
+  border: 1px solid #3e3e42;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.modalInput:focus {
+  border-color: #007acc;
+  box-shadow: 0 0 0 1px #007acc;
+}
+
+.modalFooter {
+  padding: 12px 16px;
+  border-top: 1px solid #3e3e42;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  background-color: #2d2d30;
+}
+
+.modalButton {
+  padding: 6px 16px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  outline: none;
+}
+
+.modalButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.modalButtonCancel {
+  background-color: #3c3c3c;
+  color: #ccc;
+}
+
+.modalButtonCancel:hover {
+  background-color: #4a4a4a;
+}
+
+.modalButtonConfirm {
+  background-color: #0e639c;
+  color: #fff;
+  border-color: #1177bb;
+}
+
+.modalButtonConfirm:hover {
+  background-color: #1177bb;
+}
+
+.modalSubtitle {
+  font-size: 12px;
+  color: #aaa;
+  margin-top: 4px;
+}
+
+.modalSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.modalLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.modalCheckboxRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.modalCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #bbb;
+  user-select: none;
+}
+
+.modalCheckbox input {
+  pointer-events: none;
+}
+
+.modalHelp {
+  font-size: 11px;
+  color: #888;
+}
+
+.scriptTemplateModal {
+  min-width: 420px;
+}
+
+.filePathText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.addObjectModal {
+  min-width: 420px;
+}
+
+.addObjectBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+
+.addObjectOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background-color: #1f1f23;
+  border: 1px solid #303036;
+  border-radius: 4px;
+  color: #ddd;
+  cursor: pointer;
+  transition: border-color 0.12s, background-color 0.12s;
+}
+
+.addObjectOption:hover {
+  border-color: #3a78ff;
+  background-color: rgba(58, 120, 255, 0.15);
+}
+
+.addObjectIcon {
+  font-size: 18px;
+  width: 26px;
+  text-align: center;
+}
+
+.addObjectContent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.addObjectLabel {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.addObjectDescription {
+  font-size: 11px;
+  color: #999;
+}
+
+.spriteEditorModal {
+  background-color: #252526;
+  border: 1px solid #3e3e42;
+  border-radius: 6px;
+  min-width: 760px;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.spriteEditorBody {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+}
+
+.spriteEditorSidebar {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.spriteEditorControls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spriteEditorButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spriteEditorSizeSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spriteEditorSizeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.spriteEditorSizeGrid label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.spriteEditorSizeGrid input {
+  flex: 1;
+  padding: 4px 6px;
+  background-color: #1d1d20;
+  border: 1px solid #3e3e42;
+  color: inherit;
+  border-radius: 2px;
+}
+
+.spriteEditorToolSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spriteEditorToolRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spriteToolButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  border: 1px solid #3e3e42;
+  background-color: #2d2d30;
+  color: #ccc;
+  cursor: pointer;
+  transition: background-color 0.1s ease, border-color 0.1s ease;
+}
+
+.spriteToolButton:hover {
+  background-color: #3a3a3f;
+}
+
+.spriteToolButton.active {
+  background-color: #0e639c;
+  border-color: #0e639c;
+  color: #fff;
+}
+
+.spriteToolIcon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.spriteEditorBrushControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spriteEditorBrushControls input[type='range'] {
+  flex: 1;
+}
+
+.spriteEditorBrushValue {
+  font-size: 12px;
+  color: #bcbcbc;
+  min-width: 36px;
+  text-align: right;
+}
+
+.spriteEditorRecent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spriteRecentSwatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid #4a4a4d;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.spriteRecentSwatch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    linear-gradient(45deg, rgba(0, 0, 0, 0.25) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.25) 75%),
+    linear-gradient(-45deg, rgba(0, 0, 0, 0.25) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.25) 75%);
+  background-size: 8px 8px;
+  opacity: 0;
+}
+
+.spriteRecentSwatch[data-transparent='true']::after {
+  opacity: 1;
+}
+
+.spriteRecentSwatch.active {
+  box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.7);
+  border-color: #0e639c;
+}
+
+.spriteEditorCanvasWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.spriteEditorCanvas {
+  border: 1px solid #3e3e42;
+  image-rendering: pixelated;
+  background-image:
+    linear-gradient(45deg, #2f2f33 25%, transparent 25%),
+    linear-gradient(-45deg, #2f2f33 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #2f2f33 75%),
+    linear-gradient(-45deg, transparent 75%, #2f2f33 75%);
+  background-size: 32px 32px;
+  background-position: 0 0, 0 16px, 16px -16px, -16px 0px;
+  cursor: crosshair;
+}
+
+.spriteEditorDimensions {
+  font-size: 12px;
+  color: #999;
+}
+
+.spriteEditorFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px 16px;
+}
+
+.scriptInspectorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.scriptDropTarget {
+  border-radius: 4px;
+  padding: 6px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.scriptDropTarget:hover {
+  border-color: #3e3e42;
+  background-color: rgba(14, 99, 156, 0.12);
+}
+
+.scriptDropHint {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #888;
+}
+
+.sceneSpriteImage {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.sceneSpritePlaceholder {
+  font-size: 11px;
+  color: #bbb;
+}
+
+.spriteInspector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.spriteInspectorPreview {
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  background-color: #1f1f23;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+.spriteInspectorImage {
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.spriteInspectorPlaceholder {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+}
+
+.spriteInspectorActions {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spriteInspectorPreview.drop-active {
+  border-color: #0e639c;
+  box-shadow: 0 0 0 1px rgba(14, 99, 156, 0.5);
+}
+
+.spriteInspectorHint {
+  margin-top: -4px;
+  color: #888;
+}
+
+.spriteInspectorHint small {
+  font-size: 11px;
+}
+
+.propertyGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.propertyGroup.inline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 

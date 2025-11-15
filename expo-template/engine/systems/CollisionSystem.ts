@@ -1,4 +1,13 @@
-import type { AreaComponent, CircleComponent, GameObject, RectComponent, TransformComponent, Vec2 } from '../types';
+import type {
+  AreaComponent,
+  BodyComponent,
+  CircleComponent,
+  GameObject,
+  RectComponent,
+  SpriteComponent,
+  TransformComponent,
+  Vec2,
+} from '../types';
 
 interface CollisionPair {
   a: GameObject;
@@ -121,18 +130,28 @@ export class CollisionSystem {
   }
 
   private rectVsRect(posA: Vec2, sizeA: Vec2, posB: Vec2, sizeB: Vec2): boolean {
+    // sizeA and sizeB are full widths/heights, convert to half-extents
+    const halfWidthA = sizeA.x / 2;
+    const halfHeightA = sizeA.y / 2;
+    const halfWidthB = sizeB.x / 2;
+    const halfHeightB = sizeB.y / 2;
+    
     return (
-      posA.x - sizeA.x / 2 < posB.x + sizeB.x / 2 &&
-      posA.x + sizeA.x / 2 > posB.x - sizeB.x / 2 &&
-      posA.y - sizeA.y / 2 < posB.y + sizeB.y / 2 &&
-      posA.y + sizeA.y / 2 > posB.y - sizeB.y / 2
+      posA.x - halfWidthA < posB.x + halfWidthB &&
+      posA.x + halfWidthA > posB.x - halfWidthB &&
+      posA.y - halfHeightA < posB.y + halfHeightB &&
+      posA.y + halfHeightA > posB.y - halfHeightB
     );
   }
 
   private circleVsRect(circlePos: Vec2, radius: number, rectPos: Vec2, size: Vec2): boolean {
+    // size is full width/height, convert to half-extents
+    const halfWidth = size.x / 2;
+    const halfHeight = size.y / 2;
+    
     // Find closest point on rect to circle
-    const closestX = Math.max(rectPos.x - size.x / 2, Math.min(circlePos.x, rectPos.x + size.x / 2));
-    const closestY = Math.max(rectPos.y - size.y / 2, Math.min(circlePos.y, rectPos.y + size.y / 2));
+    const closestX = Math.max(rectPos.x - halfWidth, Math.min(circlePos.x, rectPos.x + halfWidth));
+    const closestY = Math.max(rectPos.y - halfHeight, Math.min(circlePos.y, rectPos.y + halfHeight));
 
     const dx = circlePos.x - closestX;
     const dy = circlePos.y - closestY;
@@ -155,11 +174,25 @@ export class CollisionSystem {
 
   private getSize(obj: GameObject, area: AreaComponent): Vec2 {
     const scale = area.scale ?? { x: 1, y: 1 };
+    // If area has explicit dimensions, use those
     if (area.width !== undefined && area.height !== undefined) {
       return { x: area.width * scale.x, y: area.height * scale.y };
     }
+    // Otherwise, auto-detect from rect/sprite/circle components
     const rect = obj.get<RectComponent>('rect');
-    return rect ? { x: rect.width * scale.x, y: rect.height * scale.y } : { x: 0, y: 0 };
+    if (rect) {
+      return { x: rect.width * scale.x, y: rect.height * scale.y };
+    }
+    const sprite = obj.get<SpriteComponent>('sprite');
+    if (sprite) {
+      return { x: sprite.width * scale.x, y: sprite.height * scale.y };
+    }
+    const circle = obj.get<CircleComponent>('circle');
+    if (circle) {
+      const radius = circle.radius * Math.max(scale.x, scale.y);
+      return { x: radius * 2, y: radius * 2 };
+    }
+    return { x: 0, y: 0 };
   }
 
   private getCollisionKey(objA: GameObject, objB: GameObject): string {
@@ -170,16 +203,22 @@ export class CollisionSystem {
   private triggerCollisionStart(objA: GameObject, objB: GameObject): void {
     this.triggerCallbacks(objA, objB, 'onCollide');
     this.triggerCallbacks(objB, objA, 'onCollide');
+    (objA as any).trigger?.('collide', objB);
+    (objB as any).trigger?.('collide', objA);
   }
 
   private triggerCollisionUpdate(objA: GameObject, objB: GameObject): void {
     this.triggerCallbacks(objA, objB, 'onCollideUpdate');
     this.triggerCallbacks(objB, objA, 'onCollideUpdate');
+    (objA as any).trigger?.('collideUpdate', objB);
+    (objB as any).trigger?.('collideUpdate', objA);
   }
 
   private triggerCollisionEnd(objA: GameObject, objB: GameObject): void {
     this.triggerCallbacks(objA, objB, 'onCollideEnd');
     this.triggerCallbacks(objB, objA, 'onCollideEnd');
+    (objA as any).trigger?.('collideEnd', objB);
+    (objB as any).trigger?.('collideEnd', objA);
   }
 
   private triggerCallbacks(obj: GameObject, other: GameObject, eventType: string): void {
@@ -209,8 +248,8 @@ export class CollisionSystem {
    * Resolve collision physics (separate objects and adjust velocities)
    */
   private resolveCollision(objA: GameObject, objB: GameObject): void {
-    const bodyA = objA.get<any>('body');
-    const bodyB = objB.get<any>('body');
+    const bodyA = objA.get<BodyComponent>('body');
+    const bodyB = objB.get<BodyComponent>('body');
 
     // Only resolve physics if both objects have bodies
     if (!bodyA || !bodyB) return;
@@ -221,14 +260,25 @@ export class CollisionSystem {
     // Skip if neither has physics enabled (both static with no velocity)
     if (bodyA.isStatic && bodyB.isStatic) return;
 
-    const transformA = objA.get<any>('transform');
-    const transformB = objB.get<any>('transform');
+    const transformA = objA.get<TransformComponent>('transform');
+    const transformB = objB.get<TransformComponent>('transform');
     
     if (!transformA || !transformB) return;
 
+    // Get area components to apply offset (must match checkCollision logic)
+    const areaA = objA.get<AreaComponent>('area');
+    const areaB = objB.get<AreaComponent>('area');
+    
     // Calculate collision normal and separation
-    const posA = { x: transformA.pos.x.value, y: transformA.pos.y.value };
-    const posB = { x: transformB.pos.x.value, y: transformB.pos.y.value };
+    // IMPORTANT: Use the same offset logic as checkCollision!
+    const posA = {
+      x: transformA.pos.x.value + (areaA?.offset?.x ?? 0),
+      y: transformA.pos.y.value + (areaA?.offset?.y ?? 0),
+    };
+    const posB = {
+      x: transformB.pos.x.value + (areaB?.offset?.x ?? 0),
+      y: transformB.pos.y.value + (areaB?.offset?.y ?? 0),
+    };
 
     const dx = posB.x - posA.x;
     const dy = posB.y - posA.y;
@@ -248,9 +298,7 @@ export class CollisionSystem {
     const isStaticB = bodyB?.isStatic ?? false;
 
     // Calculate overlap and separate objects
-    const areaA = objA.get<AreaComponent>('area');
-    const areaB = objB.get<AreaComponent>('area');
-    
+    // Note: areaA and areaB are already declared above for offset calculation
     if (areaA && areaB) {
       const shapeA = this.getShape(objA, areaA);
       const shapeB = this.getShape(objB, areaB);
@@ -263,10 +311,16 @@ export class CollisionSystem {
         overlap = (radiusA + radiusB) - distance;
       } else if (shapeA === 'rect' && shapeB === 'rect') {
         // Simple AABB separation
+        // getSize returns full widths/heights, convert to half-extents
         const sizeA = this.getSize(objA, areaA);
         const sizeB = this.getSize(objB, areaB);
-        const overlapX = (sizeA.x + sizeB.x) / 2 - Math.abs(dx);
-        const overlapY = (sizeA.y + sizeB.y) / 2 - Math.abs(dy);
+        const halfWidthA = sizeA.x / 2;
+        const halfHeightA = sizeA.y / 2;
+        const halfWidthB = sizeB.x / 2;
+        const halfHeightB = sizeB.y / 2;
+        
+        const overlapX = (halfWidthA + halfWidthB) - Math.abs(dx);
+        const overlapY = (halfHeightA + halfHeightB) - Math.abs(dy);
         overlap = Math.min(overlapX, overlapY);
       } else {
         // Circle vs rect - approximate
@@ -372,8 +426,8 @@ export class CollisionSystem {
     areaA?: AreaComponent,
     areaB?: AreaComponent,
   ): void {
-    const friction = this.getFriction(areaA, areaB);
-    if (friction >= 1) return;
+    const friction = Math.max(0, Math.min(1, this.getFriction(areaA, areaB)));
+    if (friction <= 0) return;
 
     const vRelativeX = bodyA.velocity.x - bodyB.velocity.x;
     const vRelativeY = bodyA.velocity.y - bodyB.velocity.y;
@@ -382,10 +436,13 @@ export class CollisionSystem {
     const tangentX = vRelativeX - velocityAlongNormal * nx;
     const tangentY = vRelativeY - velocityAlongNormal * ny;
 
-    bodyA.velocity.x -= tangentX * (1 - friction) / massA;
-    bodyA.velocity.y -= tangentY * (1 - friction) / massA;
-    bodyB.velocity.x += tangentX * (1 - friction) / massB;
-    bodyB.velocity.y += tangentY * (1 - friction) / massB;
+    const invMassA = massA === Infinity ? 0 : 1 / massA;
+    const invMassB = massB === Infinity ? 0 : 1 / massB;
+
+    bodyA.velocity.x -= tangentX * friction * invMassA;
+    bodyA.velocity.y -= tangentY * friction * invMassA;
+    bodyB.velocity.x += tangentX * friction * invMassB;
+    bodyB.velocity.y += tangentY * friction * invMassB;
   }
 
   private applySingleBodyFriction(
@@ -395,15 +452,20 @@ export class CollisionSystem {
     areaA?: AreaComponent,
     areaB?: AreaComponent,
   ): void {
-    const friction = this.getFriction(areaA, areaB);
-    if (friction >= 1) return;
+    const friction = Math.max(0, Math.min(1, this.getFriction(areaA, areaB)));
+    if (friction <= 0) return;
 
     const velocityAlongNormal = body.velocity.x * nx + body.velocity.y * ny;
     const tangentX = body.velocity.x - velocityAlongNormal * nx;
     const tangentY = body.velocity.y - velocityAlongNormal * ny;
 
-    body.velocity.x = nx * velocityAlongNormal + tangentX * friction;
-    body.velocity.y = ny * velocityAlongNormal + tangentY * friction;
+    const tangentMultiplier = Math.max(0, 1 - friction);
+
+    body.velocity.x = nx * velocityAlongNormal + tangentX * tangentMultiplier;
+    body.velocity.y = ny * velocityAlongNormal + tangentY * tangentMultiplier;
+
+    if (Math.abs(body.velocity.x) < 1e-4) body.velocity.x = 0;
+    if (Math.abs(body.velocity.y) < 1e-4) body.velocity.y = 0;
   }
 
   reset(): void {

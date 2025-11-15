@@ -25,16 +25,20 @@ export interface Scene {
 export interface SceneObject {
   id: string;
   name: string;
-  type: 'rect' | 'circle';
+  type: 'rect' | 'circle' | 'sprite';
   transform: {
     x: number;
     y: number;
     scaleX: number;
     scaleY: number;
     rotation: number;
+    width?: number;
+    height?: number;
   };
   components: ComponentProperty[];
   tags: string[];
+  visible?: boolean;
+  children: SceneObject[];
 }
 
 export interface RectObject extends SceneObject {
@@ -48,6 +52,17 @@ export interface CircleObject extends SceneObject {
   type: 'circle';
   radius: number;
   color: string;
+}
+
+export interface SpriteComponentProperties {
+  name: string;
+  imagePath?: string;
+  dataUrl?: string;
+  width: number;
+  height: number;
+  originX?: number;
+  originY?: number;
+  [key: string]: any;
 }
 
 export interface ComponentProperty {
