@@ -2,183 +2,261 @@
 
 ## What is the Editor?
 
-The ReGame Engine Editor is a web-based tool that helps you create React Native game projects. It can:
+The ReGame Engine Editor is an **Electron-based desktop application** that helps you create React Native/Expo game projects. It provides:
 
-1. **Create Real Projects** - Generate full React Native/Expo projects on your file system
-2. **Visual Scene Design** - Design game levels with a drag-and-drop interface
-3. **Export Code** - Generate game code from your visual designs
+1. **Visual Scene Design** - Drag-and-drop game objects with a Godot-style interface
+2. **Project Management** - Create and manage game projects directly
+3. **Code Generation** - Automatically generates TypeScript scene files
+4. **Live Preview** - Run games directly from the editor
 
 ---
 
 ## Starting the Editor
 
 ```bash
-cd editor/editor-web
 npm install
-npm run dev
+npm run electron:dev
 ```
 
-Open **http://localhost:5173** in **Chrome** or **Edge**
+This starts:
+- Vite dev server on `http://localhost:5173`
+- Electron window with the editor UI
+- Hot reload enabled for both React and Electron
 
 ---
 
 ## Creating a New Project
 
-### Method 1: Full Project Creation
+### Step 1: Launch Editor
 
-1. Enter your project name (e.g., "MyAwesomeGame")
-2. Click **"📁 Create Project"**
+Run `npm run electron:dev` and wait for the Electron window to open.
+
+### Step 2: Create Project
+
+1. Click **"Create New Project"** button
+2. Enter project name (e.g., "MyAwesomeGame")
 3. Choose a directory on your computer
-4. The editor will create all project files:
-   - ✅ `package.json` with all dependencies
-   - ✅ `App.js` with example game code
-   - ✅ `app.json` for Expo configuration
-   - ✅ `babel.config.js` with Reanimated plugin
-   - ✅ `.gitignore` and `README.md`
-   - ✅ `engine/` folder placeholder
+4. Click **"Create"**
 
-5. **Important:** Copy the `engine` folder from `regame-engine` to your new project
-6. Run `npm install` and `npm start`
+The editor will:
+- ✅ Copy `expo-template/` to your chosen location
+- ✅ Set up all dependencies (Expo SDK 54)
+- ✅ Create initial scene file
+- ✅ Open the project in the editor
 
-### Method 2: Scene Editor Only
+### Step 3: Design Your Game
 
-1. Click **"🎨 Open Scene Editor"**
-2. Design your game scene visually
-3. Click **"▶️ Export Code"** to copy the generated code
-4. Paste into your existing project
+1. **Add GameObjects**: Click the **"+"** button in Hierarchy panel
+2. **Position Objects**: Drag objects in the Scene view
+3. **Edit Properties**: Select object and edit in Inspector panel
+4. **Add Components**: Use component dropdowns in Inspector
+5. **Write Scripts**: Click script icon to open Monaco editor
 
----
+### Step 4: Save and Run
 
-## Browser Compatibility
-
-**Required:** Chrome, Edge, or Chromium-based browsers
-
-The editor uses the File System Access API, which is only supported in:
-- ✅ Google Chrome 86+
-- ✅ Microsoft Edge 86+
-- ✅ Opera 72+
-- ❌ Firefox (not supported yet)
-- ❌ Safari (not supported yet)
+- **Save Scene**: Press `Ctrl+S` or click **"💾 Save"** button
+- **Run Game**: Click **"▶️ Run"** button to test in editor
+- **Run on Device**: Use `npx expo run:android` in project folder
 
 ---
 
-## Scene Editor Features
+## Editor Interface
 
-### Hierarchy Panel (Left)
-- **+ Rect**: Add rectangle objects
-- **+ Circle**: Add circle objects
-- Click objects to select them
-- 🗑️ icon to delete objects
+### Three-Panel Layout (Godot-Style)
 
-### Scene View (Center)
-- Visual preview of your game
-- Click objects to select them
-- See real-time updates
+```
+┌─────────────┬──────────────────┬──────────────┐
+│  Hierarchy  │   Scene View     │  Inspector   │
+│             │                  │              │
+│  - Scene    │  [Canvas Area]   │  Properties  │
+│    - Player │                  │  Components  │
+│    - Enemy  │                  │              │
+└─────────────┴──────────────────┴──────────────┘
+```
 
-### Inspector Panel (Right)
-- Edit object properties
-- Change position, scale, rotation
-- Modify colors and sizes
+### Left Panel: Hierarchy
 
-### Toolbar (Top)
-- ▶ **Play**: Test your scene
-- ⏸ **Pause**: Pause testing
-- ⏹ **Stop**: Stop testing
-- ▶️ **Export Code**: Copy generated code
+- Tree view of all GameObjects in the scene
+- Right-click for context menu (duplicate, delete, etc.)
+- Click to select object
+- Drag to reorder (parenting coming soon)
 
----
+### Center Panel: Scene View
 
-## Workflow
+- Visual canvas showing your game scene
+- **Pan**: Middle mouse drag or **Space + drag**
+- **Zoom**: Mouse wheel or zoom controls
+- **Select**: Click objects
+- **Move**: Drag selected objects
+- **Resize**: Drag corner handles
 
-### Creating a Complete Game:
+### Right Panel: Inspector
 
-1. **Create Project** via editor
-2. **Copy engine folder** to your project
-3. **Install dependencies**: `npm install`
-4. **Open in editor** to design scenes
-5. **Export code** and paste into `App.js`
-6. **Run**: `npm start`
-7. **Test** on your device with Expo Go
-
-### Quick Prototyping:
-
-1. **Open Scene Editor**
-2. **Add objects** and design
-3. **Export code**
-4. **Paste** into existing project
-5. **Done!**
+- Shows properties of selected GameObject
+- Edit Transform (x, y, width, height, anchor)
+- Add/remove Components
+- Edit component properties
+- Script editor button
 
 ---
 
-## Example Generated Code
+## Scene Editor Controls
 
-```tsx
-import { Game, pos, rect, circle } from './engine';
+### Panning the Viewport
 
-export default function App() {
-  return (
-    <Game showGamePad>
-      {(ctx) => {
-        const rectangle1 = ctx.add([
-          pos(200, 200),
-          rect(50, 50, '#6495ed')
-        ]);
+- **Middle Mouse Drag**: Click and drag with middle mouse button
+- **Space + Drag**: Hold Space, then drag with left mouse button
+- **Scrollbars**: Use scrollbars to navigate large worlds
 
-        const circle1 = ctx.add([
-          pos(250, 250),
-          circle(25, '#ff6464')
-        ]);
+### Zooming
 
-        // Add your game logic here
-      }}
-    </Game>
-  );
+- **Mouse Wheel**: Scroll to zoom in/out
+- **Zoom Controls**: Use +/- buttons in toolbar
+- **Reset Zoom**: Click "Reset" button
+
+### Object Manipulation
+
+- **Select**: Click object in Scene view or Hierarchy
+- **Move**: Drag selected object
+- **Resize**: Drag corner handles (when resizable)
+- **Delete**: Select and press `Delete` key
+
+---
+
+## Components
+
+### Transform Component
+
+Every GameObject has a Transform:
+- **Position (x, y)**: Anchor point position in pixels
+- **Size (width, height)**: Object dimensions
+- **Anchor**: Drawing origin (topleft, center, botright, etc.)
+
+### Shape Component
+
+- **Rect**: Rectangle with width, height, color
+- **Circle**: Circle with radius, color
+
+### Sprite Component
+
+- **Image**: Upload or select sprite image
+- **Origin (originX, originY)**: Pixel offset for drawing origin
+- **Built-in Editor**: Click sprite to open pixel art editor
+
+### Area Component
+
+- **Collision Detection**: Enables collision events
+- **Tags**: Add tags for collision filtering
+
+### Body Component
+
+- **Physics**: Velocity, acceleration
+- **Gravity**: Enable/disable gravity
+
+### Script Component
+
+- **Custom Logic**: Write TypeScript code
+- **Monaco Editor**: Full IntelliSense support
+- **Access to Engine API**: Use `ctx` and component APIs
+
+---
+
+## Code Generation
+
+When you save a scene, the editor automatically:
+
+1. **Saves JSON**: Scene data saved to `scenes/MainScene.json`
+2. **Generates TypeScript**: Creates `scenes/Main.ts` with executable code
+3. **Updates App.js**: Imports and runs the generated scene
+
+### Generated Code Example
+
+```typescript
+import type { GameContext } from '../engine';
+import { pos, rect, anchor } from '../engine';
+
+export function MainScene(ctx: GameContext): void {
+  const player = ctx.add([
+    pos(100, 200),
+    rect(50, 50, '#6495ed'),
+    anchor('topleft'),
+    "player"
+  ]);
 }
 ```
 
 ---
 
-## Tips
+## Tips & Tricks
 
-💡 **Start Simple**: Begin with the scene editor to learn the basics
+### Keyboard Shortcuts
 
-💡 **Copy Engine First**: Always copy the `engine` folder before running your project
+- `Ctrl+S`: Save scene
+- `Delete`: Delete selected object
+- `Space`: Hold for pan mode
+- `Ctrl+Z`: Undo (coming soon)
+- `Ctrl+Y`: Redo (coming soon)
 
-💡 **Use Chrome**: For best compatibility and File System Access support
+### Best Practices
 
-💡 **Export Often**: Save your work by exporting code frequently
+1. **Name Your Objects**: Use descriptive names in Hierarchy
+2. **Use Tags**: Add tags to objects for collision filtering
+3. **Anchor Points**: Choose appropriate anchors (topleft for UI, center for sprites)
+4. **Organize Scenes**: Create multiple scenes for different levels
+5. **Script Organization**: Keep scripts focused and reusable
 
-💡 **Test on Device**: Use Expo Go app to test on real devices
+### Common Workflows
+
+**Creating a Platformer:**
+1. Add Rect for ground
+2. Add Sprite for player
+3. Add Body component with gravity
+4. Add Area component for collision
+5. Write script for movement and jumping
+
+**Creating a UI:**
+1. Add Rects for buttons
+2. Set anchor to "topleft"
+3. Position relative to viewport
+4. Add Script for click handlers
 
 ---
 
 ## Troubleshooting
 
-**"Browser not supported"**
-- Use Chrome, Edge, or another Chromium-based browser
+### Editor Won't Start
 
-**"Cannot find module './engine'"**
-- Copy the `engine` folder to your project directory
+- Check Node.js version (18+ required)
+- Run `npm install` to ensure dependencies are installed
+- Check if port 5173 is available
 
-**"npm install" fails**
-- Make sure you have Node.js 16+ installed
-- Try deleting `node_modules` and running again
+### Scene Not Saving
 
-**"Expo Go won't connect"**
-- Make sure your phone and computer are on the same WiFi
-- Check firewall settings
+- Check file permissions in project directory
+- Ensure project is properly opened
+- Check console for error messages
+
+### Generated Code Has Errors
+
+- Check TypeScript errors in Monaco editor
+- Ensure engine files are synced from `expo-template/`
+- Verify component properties are valid
+
+### Game Won't Run
+
+- Run `npm install` in project folder
+- Check Expo SDK version matches (54)
+- Verify Android/iOS setup for device testing
 
 ---
 
 ## Next Steps
 
-- Read `USAGE.md` for more ways to create projects
-- Check `README.md` for full API documentation
-- Explore `app/index.tsx` for complete examples
+- Read `expo-template/engine/README.md` for engine API
+- Check `expo-template/engine/COLLISION_GUIDE.md` for collision system
+- Experiment with different components and scripts
+- Create multiple scenes for your game
 
-Happy creating! 🎮✨
+---
 
-
-
-
-
+**Happy Game Making! 🎮**
