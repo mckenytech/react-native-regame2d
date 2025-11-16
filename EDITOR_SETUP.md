@@ -1,64 +1,51 @@
 # 🎮 ReGame Engine Editor - Setup Guide
 
-Complete guide to setting up the visual game editor for ReGame Engine.
+Complete guide to setting up the desktop editor for ReGame Engine.
 
-## 📁 Project Structure
+## 📁 Project Structure (Editor)
 
 ```
 regame-engine/
-├── engine/              ← Your game runtime engine
+├── electron/            # Main process + preload
+├── src/                 # React UI (Vite)
+│   ├── App.jsx
 │   ├── components/
-│   ├── core/
-│   ├── systems/
-│   └── index.tsx
-├── app/                 ← Mobile game app
-│   └── index.tsx
-└── editor/             ← NEW! Visual editor (Windows)
-    ├── src/
-    │   ├── components/
-    │   │   ├── EditorLayout.tsx
-    │   │   ├── SceneView.tsx
-    │   │   ├── Hierarchy.tsx
-    │   │   ├── Inspector.tsx
-    │   │   ├── Toolbar.tsx
-    │   │   └── ProjectManager.tsx
-    │   ├── utils/
-    │   │   └── codeExporter.ts
-    │   └── types.ts
-    ├── App.tsx
-    ├── package.json
-    └── README.md
+│   └── utils/codeGenerator.js
+├── expo-template/       # Template copied into new projects
+│   ├── engine/
+│   ├── scenes/
+│   ├── App.js
+│   └── package.json
+└── package.json         # Editor scripts and deps
 ```
 
-## 🚀 Quick Start
-
-### 1. Install React Native Windows
+## 🚀 Quick Start (Editor)
 
 ```bash
-cd editor
 npm install
+npm run electron:dev
 ```
 
-### 2. Initialize Windows Platform
+This starts the Vite dev server and opens the Electron editor window.
 
-```bash
-npx react-native-windows-init --overwrite
-```
+## 📦 Create a New Game Project
 
-This will create the `windows/` directory with Visual Studio project files.
+1) In the editor, click “Create New Project”  
+2) Pick a name and folder  
+3) The editor copies `expo-template/` to your folder  
+4) Open the project in the editor to edit scenes
 
-### 3. Open in Visual Studio (Optional)
+## ▶ Build Workflow (Device/Emulator)
 
-```bash
-# Open the solution file
-start windows/regame-editor.sln
-```
+- Full build (first time): builds native dev client and runs app  
+  Runs: `npx expo run:android` (or `:ios`)
 
-### 4. Run the Editor
+- Soft build (next times): starts Metro for already-installed dev client  
+  Runs: `npx expo start --dev-client --clear`
 
-```bash
-npm run windows
-```
+Reload tips:
+- After saving in the editor, press `r` in the Metro terminal or on the device to reload
+- You can also start the Soft build yourself in a separate terminal inside the project folder
 
 ## 🎨 Editor Features
 
@@ -93,89 +80,47 @@ npm run windows
 
 ## 🛠️ Usage Workflow
 
-### Creating Your First Game
-
-1. **Launch Editor**
-   ```bash
-   cd editor
-   npm run windows
-   ```
-
-2. **Create Project**
-   - Click "New Project" or "Quick Start"
-   - Name your game
-
-3. **Add Objects**
-   - Click "+ Rect" or "+ Circle" in Hierarchy
-   - Select object to edit properties
-
-4. **Configure Properties**
-   - Use Inspector to set:
-     - Position (X, Y)
-     - Scale
-     - Color
-     - Physics (add body component)
-     - Collision (add area component)
-
-5. **Test Game**
-   - Click "▶ Play"
-   - Use gamepad (already integrated!)
-   - Click "⏹ Stop" to edit
-
-6. **Export Code**
-   - Click "▶️ Export"
-   - Copy generated code
-   - Paste into `app/index.tsx`
+1) Launch editor: `npm run electron:dev`  
+2) Create project: choose name and folder  
+3) Add objects in scene; edit properties in Inspector  
+4) Save scene (Ctrl+S) → generates `scenes/Main.ts`  
+5) Full build (first time) → then Soft build for fast iterations
 
 ### Example Generated Code
 
 ```typescript
-import { Game, pos, rect, circle, color, body, area } from "../engine";
+import type { GameContext } from '../engine';
+import { pos, rect, anchor, area } from '../engine';
 
-export default function MyGame() {
-  return (
-    <Game showGamePad>
-      {(ctx) => {
-        const player = ctx.add([
-          pos(200, 300),
-          rect(50, 50, color(100, 150, 255)),
-          area(),
-          "player"
-        ]);
-
-        const enemy = ctx.add([
-          pos(200, 100),
-          circle(25, color(255, 100, 100)),
-          body({ velocity: { x: 50, y: 50 } }),
-          area(),
-          "enemy"
-        ]);
-
-        player.onCollide("enemy", (enemy) => {
-          ctx.destroy(enemy);
-        });
-      }}
-    </Game>
-  );
+export function MainScene(ctx: GameContext): void {
+  const player = ctx.add([
+    pos(200, 300),
+    rect(50, 50, '#6495ed'),
+    anchor('topleft'),
+    area(),
+    'player',
+  ]);
 }
 ```
 
 ## 🔧 Development
 
-### Running in Development Mode
+### Editor
 
 ```bash
-# Start Metro bundler
-npm start
-
-# In another terminal, run Windows app
-npm run windows
+npm run electron:dev
+npm run build
+npm run package
 ```
 
-### Building for Production
+### Game project
 
 ```bash
-npm run build
+cd YourGameProject/
+# Full build (first time)
+npx expo run:android
+# Soft build (subsequent)
+npx expo start --dev-client --clear
 ```
 
 ## 📦 What's Included
@@ -233,24 +178,18 @@ npm run build
 
 ## 🐛 Troubleshooting
 
-### "Module not found: ../engine"
-- Ensure engine directory exists
-- Check relative paths in imports
-
-### "React Native Windows not found"
-- Run `npx react-native-windows-init`
-- Install Visual Studio 2022
-
 ### Editor won't launch
-- Check Node.js version (16+)
+- Check Node.js version (18+)
 - Delete `node_modules` and reinstall
-- Clear Metro cache: `npx react-native start --reset-cache`
+
+### Changes not showing on device
+- Ensure Soft build is running (Metro)
+- Press `r` in the Metro terminal or on device to reload
 
 ## 📚 Resources
 
-- [React Native Windows Docs](https://microsoft.github.io/react-native-windows/)
-- [ReGame Engine Docs](../engine/README.md)
-- [Collision Guide](../engine/COLLISION_GUIDE.md)
+- `expo-template/engine/README.md` (engine docs)
+- `expo-template/engine/COLLISION_GUIDE.md` (collision system)
 
 ## 🎓 Learning Path
 
