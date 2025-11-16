@@ -1,18 +1,14 @@
 # 🎮 ReGame Engine Editor
 
-A desktop visual editor for creating cross-platform games with the ReGame Engine. Built with Electron + React (Vite) for a native desktop experience.
+A simple desktop editor to create and run ReGame projects (React Native + Expo with Skia/Reanimated).
 
-## What is ReGame Engine Editor?
+## What is it?
 
-ReGame Engine Editor is an **Electron-based desktop application** that helps you create cross-platform games (iOS, Android, Web) using the ReGame Engine - a Kaplay-inspired game framework built with React Native Skia and Reanimated.
-
-### Why Electron?
-
-✅ **No server needed** - Direct file system access via Electron IPC  
-✅ **Cross-platform** - Works on Windows, Mac, Linux  
-✅ **Native performance** - Better than web-based editors  
-✅ **Full file system access** - Create and manage projects directly  
-✅ **Monaco Editor** - Professional code editing experience  
+A Godot-style visual editor that lets you:
+- Create a new project from the built-in template
+- Design scenes (add Rect/Circle/Sprite/etc.)
+- Generate TypeScript scene files
+- Build and run on device/emulator
 
 ## Project Structure
 
@@ -36,33 +32,35 @@ regame-engine/              # THE EDITOR (Electron App)
 └── package.json            # Editor dependencies
 ```
 
-## Quick Start
+## Quick Start (5 steps)
 
-### 1. Install Dependencies
+1) Install dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Start the Editor
+2) Start the editor
 
 ```bash
 npm run electron:dev
 ```
 
-This will:
-- Start Vite dev server on `http://localhost:5173`
-- Launch Electron window
-- Enable hot reload for both React UI and Electron
+3) In the editor → Click “Create New Project”, choose name and folder  
+4) Add an object (e.g., Rect) to the scene and save  
+5) Build and run (see “Build workflow” below)
 
-### 3. Create Your First Game
+### Build workflow (Full vs Soft)
 
-1. Click **"Create New Project"** in the editor
-2. Enter project name and choose location
-3. The editor copies `expo-template/` to your location
-4. Open the project in the editor
-5. Design your game scene visually
-6. Run your game with `npx expo run:android` (or iOS/Web)
+- Full build (first time per device): builds native dev client then runs the app  
+  Command the editor runs: `npx expo run:android`
+
+- Soft build (subsequent runs): starts Metro for the already-installed dev client  
+  Command the editor runs: `npx expo start --dev-client --clear`
+
+Tips:
+- Reload is controlled by Metro/dev client. After saving in the editor, press `r` in the Metro terminal or on the device to reload.
+- You can also open your own terminal in the project folder and run the soft build command yourself; then use `r` there to reload.
 
 ## Editor Features
 
@@ -153,8 +151,8 @@ export function MainScene(ctx: GameContext): void {
    - Edit properties in Inspector
    - Add scripts with Monaco editor
 5. Click **"💾 Save Scene"** (Ctrl+S)
-6. Click **"▶️ Run Game"** to test
-7. Run on device: `npx expo run:android` in project folder
+6. Full build the first time (Android): `npx expo run:android`  
+7. Next times use Soft build: `npx expo start --dev-client --clear`
 
 ### Method 2: Code-Only
 
@@ -170,7 +168,7 @@ export function MainScene(ctx: GameContext): void {
 | **iOS** | ✅ Working | `npx expo run:ios` |
 | **Web** | ✅ Working | `npx expo start --web` |
 
-**Note**: Uses Expo Dev Build (not Expo Go) for full native module support.
+**Note**: Uses Expo Dev Build (not Expo Go). Press `r` to reload.
 
 ## Development
 
