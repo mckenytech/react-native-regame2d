@@ -54,15 +54,15 @@ export class InputSystem {
   }
 
   /**
-   * Set key state (called by GamePad component)
+   * Set key state (called by GamePad via scheduleOnRN)
    */
-  setKeyPressed(key: GameKey, pressed: boolean): void {
+  setKeyPressed = (key: GameKey, pressed: boolean): void => {
     if (pressed) {
       this.pressedKeys.add(key);
     } else {
       this.pressedKeys.delete(key);
     }
-  }
+  };
 
   /**
    * Update input state and trigger callbacks

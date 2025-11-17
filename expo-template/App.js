@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Game } from './engine';
 import { MainScene } from './scenes/Main';
 
@@ -10,7 +11,7 @@ const scenes = {
 
 export default function App() {
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" hidden />
       <Game 
         showGamePad
@@ -26,7 +27,7 @@ export default function App() {
           ctx.go('main');
         }}
       </Game>
-    </>
+    </GestureHandlerRootView>
   );
 }
 

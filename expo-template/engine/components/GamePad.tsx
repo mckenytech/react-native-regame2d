@@ -1,5 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { makeMutable, type SharedValue } from 'react-native-reanimated';
 import type { GameKey, InputSystem } from '../core/InputSystem';
 
 interface GamePadProps {
@@ -8,23 +10,44 @@ interface GamePadProps {
   opacity?: number;
 }
 
+// ✅ ZERO-LATENCY INPUT! SharedValues updated directly on UI thread
+export const inputSharedValues: Record<GameKey, SharedValue<boolean>> = {
+  up: makeMutable(false),
+  down: makeMutable(false),
+  left: makeMutable(false),
+  right: makeMutable(false),
+  a: makeMutable(false),
+  b: makeMutable(false),
+};
+
 /**
- * On-screen game pad for touch controls
- * Provides directional pad and action buttons (A, B)
+ * On-screen game pad for touch controls - PURE UI THREAD! ⚡
+ * NO runOnJS, NO bridging - instant SharedValue updates like Unity Input!
  */
 export function GamePad({ inputSystem, size = 70, opacity = 0.7 }: GamePadProps) {
-  const handlePressIn = (key: GameKey) => {
-    inputSystem.setKeyPressed(key, true);
-  };
-
-  const handlePressOut = (key: GameKey) => {
-    inputSystem.setKeyPressed(key, false);
-  };
-
   const buttonStyle = {
     width: size,
     height: size,
     opacity,
+  };
+
+  // ✅ Creates a ZERO-LATENCY UI-thread gesture for a key
+  const createKeyGesture = (key: GameKey) => {
+    const sharedValue = inputSharedValues[key];
+    
+    return Gesture.Manual()
+      .onTouchesDown(() => {
+        'worklet'; // 🚀 Pure UI thread - INSTANT! No bridging!
+        sharedValue.value = true;
+      })
+      .onTouchesUp(() => {
+        'worklet';
+        sharedValue.value = false;
+      })
+      .onTouchesCancelled(() => {
+        'worklet';
+        sharedValue.value = false;
+      });
   };
 
   return (
@@ -34,45 +57,37 @@ export function GamePad({ inputSystem, size = 70, opacity = 0.7 }: GamePadProps)
         {/* Up */}
         <View style={styles.dpadRow}>
           <View style={{ width: size }} />
-          <Pressable
-            onPressIn={() => handlePressIn('up')}
-            onPressOut={() => handlePressOut('up')}
-            style={[styles.button, styles.buttonUp, buttonStyle]}
-          >
-            <Text style={styles.buttonText}>▲</Text>
-          </Pressable>
+          <GestureDetector gesture={createKeyGesture('up')}>
+            <View style={[styles.button, styles.buttonUp, buttonStyle]}>
+              <Text style={styles.buttonText}>▲</Text>
+            </View>
+          </GestureDetector>
           <View style={{ width: size }} />
         </View>
 
         {/* Left, Center, Right */}
         <View style={styles.dpadRow}>
-          <Pressable
-            onPressIn={() => handlePressIn('left')}
-            onPressOut={() => handlePressOut('left')}
-            style={[styles.button, styles.buttonLeft, buttonStyle]}
-          >
-            <Text style={styles.buttonText}>◀</Text>
-          </Pressable>
+          <GestureDetector gesture={createKeyGesture('left')}>
+            <View style={[styles.button, styles.buttonLeft, buttonStyle]}>
+              <Text style={styles.buttonText}>◀</Text>
+            </View>
+          </GestureDetector>
           <View style={[styles.center, { width: size, height: size }]} />
-          <Pressable
-            onPressIn={() => handlePressIn('right')}
-            onPressOut={() => handlePressOut('right')}
-            style={[styles.button, styles.buttonRight, buttonStyle]}
-          >
-            <Text style={styles.buttonText}>▶</Text>
-          </Pressable>
+          <GestureDetector gesture={createKeyGesture('right')}>
+            <View style={[styles.button, styles.buttonRight, buttonStyle]}>
+              <Text style={styles.buttonText}>▶</Text>
+            </View>
+          </GestureDetector>
         </View>
 
         {/* Down */}
         <View style={styles.dpadRow}>
           <View style={{ width: size }} />
-          <Pressable
-            onPressIn={() => handlePressIn('down')}
-            onPressOut={() => handlePressOut('down')}
-            style={[styles.button, styles.buttonDown, buttonStyle]}
-          >
-            <Text style={styles.buttonText}>▼</Text>
-          </Pressable>
+          <GestureDetector gesture={createKeyGesture('down')}>
+            <View style={[styles.button, styles.buttonDown, buttonStyle]}>
+              <Text style={styles.buttonText}>▼</Text>
+            </View>
+          </GestureDetector>
           <View style={{ width: size }} />
         </View>
       </View>
@@ -82,24 +97,20 @@ export function GamePad({ inputSystem, size = 70, opacity = 0.7 }: GamePadProps)
         {/* B button (lower) */}
         <View style={styles.actionRow}>
           <View style={{ width: size }} />
-          <Pressable
-            onPressIn={() => handlePressIn('b')}
-            onPressOut={() => handlePressOut('b')}
-            style={[styles.button, styles.buttonB, buttonStyle]}
-          >
-            <Text style={styles.buttonTextAction}>B</Text>
-          </Pressable>
+          <GestureDetector gesture={createKeyGesture('b')}>
+            <View style={[styles.button, styles.buttonB, buttonStyle]}>
+              <Text style={styles.buttonTextAction}>B</Text>
+            </View>
+          </GestureDetector>
         </View>
 
         {/* A button (upper right) */}
         <View style={styles.actionRow}>
-          <Pressable
-            onPressIn={() => handlePressIn('a')}
-            onPressOut={() => handlePressOut('a')}
-            style={[styles.button, styles.buttonA, buttonStyle]}
-          >
-            <Text style={styles.buttonTextAction}>A</Text>
-          </Pressable>
+          <GestureDetector gesture={createKeyGesture('a')}>
+            <View style={[styles.button, styles.buttonA, buttonStyle]}>
+              <Text style={styles.buttonTextAction}>A</Text>
+            </View>
+          </GestureDetector>
           <View style={{ width: size }} />
         </View>
       </View>

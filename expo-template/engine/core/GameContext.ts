@@ -2,6 +2,7 @@ import { CollisionSystem } from '../systems/CollisionSystem';
 import type { Component, GameContext as IGameContext, TransformComponent } from '../types';
 import { GameObject } from './GameObject';
 import type { GameKey, InputSystem } from './InputSystem';
+import type { SharedValue } from 'react-native-reanimated';
 
 export class GameContext implements IGameContext {
   private _objects: GameObject[] = [];
@@ -15,6 +16,9 @@ export class GameContext implements IGameContext {
     Array<{ tag?: string; handler: (obj: GameObject, ...args: any[]) => void }>
   >();
   private _viewport = { width: 360, height: 640 };
+  
+  // ✅ Unity/Kaboom-style input access: ctx.input.left.value
+  public input!: Record<GameKey, SharedValue<boolean>>;
 
   get objects(): GameObject[] {
     return this._objects;

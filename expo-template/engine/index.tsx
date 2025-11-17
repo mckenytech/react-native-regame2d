@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { NativeModules, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSharedValue } from 'react-native-reanimated';
-import { GamePad } from './components/GamePad';
+import { GamePad, inputSharedValues } from './components/GamePad';
 import { GameContext } from './core/GameContext';
 import { useGameLoop } from './core/GameLoop';
 import { InputSystem } from './core/InputSystem';
@@ -9,9 +10,9 @@ import { RenderSystem } from './systems/RenderSystem';
 
 // Re-export components
 export * from './components';
-export { GamePad } from './components/GamePad';
-export type { Component, GameObject, Vec2 } from './types';
+export { GamePad, inputSharedValues } from './components/GamePad';
 export type { GameContext } from './core/GameContext';
+export type { Component, GameObject, Vec2 } from './types';
 
 interface GameProps {
   width?: number;
@@ -62,6 +63,8 @@ export function Game({
   if (!setupRef.current) {
     // Initialize input system
     contextRef.current.setInputSystem(inputSystemRef.current);
+    // ✅ Expose SharedValue input (Unity/Kaboom style)
+    contextRef.current.input = inputSharedValues;
     contextRef.current.setViewport(width, height);
     if (__DEV__) {
       console.log(
@@ -102,35 +105,37 @@ export function Game({
   useGameLoop(update);
 
   return (
-    <View style={styles.container}>
-      <RenderSystem
-        objects={contextRef.current.objects}
-        width={width}
-        height={height}
-        tick={tick}
-        debug={debug}
-      />
-      {showGamePad && (
-        <GamePad 
-          inputSystem={inputSystemRef.current}
-          size={gamePadSize}
-          opacity={gamePadOpacity}
+    <GestureHandlerRootView style={styles.container}>
+      <View style={styles.container}>
+        <RenderSystem
+          objects={contextRef.current.objects}
+          width={width}
+          height={height}
+          tick={tick}
+          debug={debug}
         />
-      )}
-      {canShowDevMenu && (
-        <View pointerEvents="box-none" style={styles.devMenuContainer}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Open developer menu"
-            hitSlop={devMenuHitSlop}
-            onPress={openDevMenu}
-            style={styles.devMenuButton}
-          >
-            <Text style={styles.devMenuButtonText}>DEV</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+        {showGamePad && (
+          <GamePad 
+            inputSystem={inputSystemRef.current}
+            size={gamePadSize}
+            opacity={gamePadOpacity}
+          />
+        )}
+        {canShowDevMenu && (
+          <View pointerEvents="box-none" style={styles.devMenuContainer}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Open developer menu"
+              hitSlop={devMenuHitSlop}
+              onPress={openDevMenu}
+              style={styles.devMenuButton}
+            >
+              <Text style={styles.devMenuButtonText}>DEV</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </GestureHandlerRootView>
   );
 }
 

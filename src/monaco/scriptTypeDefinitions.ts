@@ -156,6 +156,8 @@ declare namespace ReGame {
     getCurrentScene(): string | null;
     setViewport(width: number, height: number): void;
     getViewport(): { width: number; height: number };
+    // ✅ Unity/Kaboom-style input: ctx.input.left.value, ctx.input.right.value, etc.
+    input: Record<GameKey, SharedValue<boolean>>;
   }
 }
 
