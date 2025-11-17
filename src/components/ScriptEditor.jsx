@@ -10,31 +10,30 @@ export default function ScriptEditor({ isOpen, onClose, onSave, scriptName, init
   const createDefaultTemplate = (name = 'Script') => {
     const safeName = name || 'Script';
     return `// ${safeName}
-// Write your game logic here!
-// This is a KAPLAY-style component - use 'this' to access the GameObject!
 
-export function update(dt) {
-  // Called every frame on JS thread
-  // dt: delta time (time since last frame)
-  // Use 'this' to access this GameObject:
+// Variables declared at top level
+let someVariable: any = null;
+
+function ready() {
+  // Initialization - runs AFTER all objects are created
+  // Access this GameObject using 'this':
   //   - this.id (unique ID)
   //   - this.tags (array of tags)  
-  //   - this.components (Map of components)
   //   - this.get('transform') - gets the transform component
+  //   - this.onCollide('tag', callback) - collision handler
   
-  // Get the transform component to access position
-  const transform = this.get('transform');
-  if (transform && transform.pos) {
-    // Animate position (Reanimated shared values)
-    transform.pos.x.value += 100 * dt;
-    // transform.pos.y.value += 50 * dt;
-  }
+  // Example: Get body component
+  // const body = this.get('body');
 }
 
-export function onCollision(other) {
-  // Called when colliding with another object
-  // other: the object we collided with
-  console.log("Collision with:", other.id);
+function update(dt: number) {
+  // Called every frame (dt = delta time)
+  
+  // Example: Animate position
+  // const transform = this.get('transform');
+  // if (transform && transform.pos) {
+  //   transform.pos.x.value += 100 * dt;
+  // }
 }
 `;
   };
@@ -55,13 +54,13 @@ export function onCollision(other) {
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     
-    // Set up Monaco for JavaScript game scripting
-    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+    // Set up Monaco for TypeScript game scripting
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
       noSyntaxValidation: false,
     });
 
-    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.ES2020,
       allowNonTsExtensions: true,
       moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
@@ -70,11 +69,13 @@ export function onCollision(other) {
       esModuleInterop: true,
       jsx: monaco.languages.typescript.JsxEmit.React,
       allowJs: true,
-      typeRoots: ["node_modules/@types"]
+      typeRoots: ["node_modules/@types"],
+      strict: false,
+      skipLibCheck: true
     });
 
     if (!extraLibRegistered) {
-      monaco.languages.typescript.javascriptDefaults.addExtraLib(
+      monaco.languages.typescript.typescriptDefaults.addExtraLib(
         scriptTypeDefinitions,
         'file:///regame-script.d.ts'
       );
@@ -185,7 +186,7 @@ export function onCollision(other) {
         },
       ];
 
-      thisCompletionProvider = monaco.languages.registerCompletionItemProvider('javascript', {
+      thisCompletionProvider = monaco.languages.registerCompletionItemProvider('typescript', {
         triggerCharacters: ['.'],
         provideCompletionItems(model, position) {
           const lineContent = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
@@ -251,7 +252,7 @@ export function onCollision(other) {
         <div className="scriptEditorBody">
           <Editor
             height="100%"
-            defaultLanguage="javascript"
+            defaultLanguage="typescript"
             value={code}
             onChange={(value) => {
               const next = value ?? '';

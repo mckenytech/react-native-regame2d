@@ -128,6 +128,8 @@ export function generateSceneCode(
         components.add('area');
       } else if (comp.type === 'Sprite') {
         components.add('sprite');
+      } else if (comp.type === 'Text') {
+        components.add('text');
       }
     });
     // Always include area for collision if Physics is present
@@ -207,19 +209,29 @@ export function generateSceneCode(
     const posX = transform.x;
     const posY = transform.y;
 
+    // Use uniform scaling based on width to preserve aspect ratio
+    const scaleFactorX = viewportWidth;
+    const scaleFactorY = viewportWidth; // Use width for both to maintain aspect ratio
+    
     const posXExpr = formatDimensionExpr(
-      posX / viewportWidth,
+      posX / scaleFactorX,
       'width',
       posX,
-      viewportWidth,
+      scaleFactorX,
     );
     const posYExpr = formatDimensionExpr(
-      posY / viewportHeight,
-      'height',
+      posY / scaleFactorY,
+      'width', // Use 'width' for Y too to get uniform scaling
       posY,
-      viewportHeight,
+      scaleFactorY,
     );
     componentsList.push(`pos(${posXExpr}, ${posYExpr})`);
+    
+    // Add rotation if not zero
+    if (transform.rotation && Math.abs(transform.rotation) > 0.01) {
+      componentsList.push(`rotate(${formatLiteral(transform.rotation)})`);
+      components.add('rotate');
+    }
     
     // Add anchor component if transform has anchor property (only for non-sprites, sprites use originX/originY)
     if (!spriteComp && transform.anchor && transform.anchor !== 'center') {
@@ -228,36 +240,35 @@ export function generateSceneCode(
     }
     if (spriteComp) {
       const spriteProps = spriteComp.properties ?? {};
+    // Use uniform scaling for sprite dimensions too
     const spriteWidthExpr = formatDimensionExpr(
-      transform.width / viewportWidth,
+      transform.width / scaleFactorX,
       'width',
       transform.width,
-      viewportWidth,
+      scaleFactorX,
     );
     const spriteHeightExpr = formatDimensionExpr(
-      transform.height / viewportHeight,
-      'height',
+      transform.height / scaleFactorY,
+      'width', // Use 'width' for uniform scaling
       transform.height,
-      viewportHeight,
+      scaleFactorY,
     );
       const options = [];
       if (spriteProps.dataUrl) {
         options.push(`dataUri: ${JSON.stringify(spriteProps.dataUrl)}`);
       }
-      if (spriteProps.previewDataUrl) {
-        options.push(`previewDataUrl: ${JSON.stringify(spriteProps.previewDataUrl)}`);
-      }
+      // Note: previewDataUrl is editor-only, not used in runtime
       const originXExpr = formatDimensionExpr(
-        (spriteProps.originX ?? transform.width / 2) / viewportWidth,
+        (spriteProps.originX ?? transform.width / 2) / scaleFactorX,
         'width',
         spriteProps.originX ?? transform.width / 2,
-        viewportWidth,
+        scaleFactorX,
       );
       const originYExpr = formatDimensionExpr(
-        (spriteProps.originY ?? transform.height / 2) / viewportHeight,
-        'height',
+        (spriteProps.originY ?? transform.height / 2) / scaleFactorY,
+        'width', // Use 'width' for uniform scaling
         spriteProps.originY ?? transform.height / 2,
-        viewportHeight,
+        scaleFactorY,
       );
       options.push(`origin: { x: ${originXExpr}, y: ${originYExpr} }`);
       let spriteCall = '';
@@ -270,8 +281,8 @@ export function generateSceneCode(
         }
       }
       if (!spriteCall) {
-        const dataUri = spriteProps.dataUrl ?? spriteProps.previewDataUrl ?? '';
-        const fallbackOptions = spriteProps.dataUrl || spriteProps.previewDataUrl
+        const dataUri = spriteProps.dataUrl ?? '';
+        const fallbackOptions = spriteProps.dataUrl
           ? options
           : options.filter(opt => !opt.startsWith('dataUri'));
         spriteCall = `sprite(${JSON.stringify(dataUri)}, ${spriteWidthExpr}, ${spriteHeightExpr}${
@@ -282,17 +293,18 @@ export function generateSceneCode(
     }
     if (shapeComp) {
       if (shapeComp.shapeType === 'Rectangle') {
+        // Use uniform scaling for rectangles
         const rectWidthExpr = formatDimensionExpr(
-          transform.width / viewportWidth,
+          transform.width / scaleFactorX,
           'width',
           transform.width,
-          viewportWidth,
+          scaleFactorX,
         );
         const rectHeightExpr = formatDimensionExpr(
-          transform.height / viewportHeight,
-          'height',
+          transform.height / scaleFactorY,
+          'width', // Use 'width' for uniform scaling
           transform.height,
-          viewportHeight,
+          scaleFactorY,
         );
         componentsList.push(`rect(${rectWidthExpr}, ${rectHeightExpr}, '${shapeComp.color}')`);
       } else if (shapeComp.shapeType === 'Circle') {
@@ -300,6 +312,25 @@ export function generateSceneCode(
         const radiusExpr = formatRadiusExpr(radiusFactor);
         componentsList.push(`circle(${radiusExpr}, '${shapeComp.color}')`);
       }
+    }
+
+    const textComp = obj.components.find(c => c.type === 'Text');
+    if (textComp) {
+      const textContent = textComp.text || 'Text';
+      const textOptions = [];
+      if (textComp.textSize && textComp.textSize !== 16) {
+        textOptions.push(`size: ${textComp.textSize}`);
+      }
+      if (textComp.align && textComp.align !== 'left') {
+        textOptions.push(`align: '${textComp.align}'`);
+      }
+      if (textComp.color && textComp.color !== '#ffffff') {
+        textOptions.push(`color: '${textComp.color}'`);
+      }
+      const textCall = textOptions.length > 0
+        ? `text(${JSON.stringify(textContent)}, { ${textOptions.join(', ')} })`
+        : `text(${JSON.stringify(textContent)})`;
+      componentsList.push(textCall);
     }
 
     const areaComp = obj.components.find(c => c.type === 'Area');
@@ -340,19 +371,19 @@ export function generateSceneCode(
         }
         if (areaComp.width != null) {
           const widthExpr = formatDimensionExpr(
-            areaComp.width / viewportWidth,
+            areaComp.width / scaleFactorX,
             'width',
             areaComp.width,
-            viewportWidth,
+            scaleFactorX,
           );
           areaOptions.push(`width: ${widthExpr}`);
         }
         if (areaComp.height != null) {
           const heightExpr = formatDimensionExpr(
-            areaComp.height / viewportHeight,
-            'height',
+            areaComp.height / scaleFactorY,
+            'width', // Use 'width' for uniform scaling
             areaComp.height,
-            viewportHeight,
+            scaleFactorY,
           );
           areaOptions.push(`height: ${heightExpr}`);
         }
@@ -374,16 +405,16 @@ export function generateSceneCode(
           areaOptions.push(`friction: ${formatLiteral(areaComp.friction)}`);
         }
         const offsetXExpr = formatDimensionExpr(
-          convertedOffsetX / viewportWidth,
+          convertedOffsetX / scaleFactorX,
           'width',
           convertedOffsetX,
-          viewportWidth,
+          scaleFactorX,
         );
         const offsetYExpr = formatDimensionExpr(
-          convertedOffsetY / viewportHeight,
-          'height',
+          convertedOffsetY / scaleFactorY,
+          'width', // Use 'width' for uniform scaling
           convertedOffsetY,
-          viewportHeight,
+          scaleFactorY,
         );
         if (offsetXExpr !== '0' || offsetYExpr !== '0') {
           areaOptions.push(`offset: { x: ${offsetXExpr}, y: ${offsetYExpr} }`);
@@ -458,50 +489,105 @@ export function generateSceneCode(
     if (scriptComp && scriptComp.code) {
       const normalizedCode = scriptComp.code.replace(/\r/g, '');
       scriptVarName = `${varName}_script`;
+      
+      // Extract ready() function
+      const readyMatch = normalizedCode.match(
+        /function\s+ready\s*\(\s*\)\s*\{([\s\S]*?)\n\}/,
+      );
+      
+      // Extract update() function
       const updateMatch = normalizedCode.match(
-        /export\s+function\s+update\s*\(([^)]*)\)\s*\{([\s\S]*?)\n\}/,
+        /function\s+update\s*\(([^)]*)\)\s*\{([\s\S]*?)\n\}/,
       );
 
-      if (updateMatch && updateMatch[2].trim()) {
-        const params = updateMatch[1].trim();
-        const updateBody = updateMatch[2].trim();
-        const setupLines = normalizedCode
-          .slice(0, updateMatch.index)
-          .split('\n')
-          .map(line => line.trimEnd())
-          .filter(line => line.trim().length > 0 && !line.includes('// Script'));
-        const setupBlock = setupLines.length
-          ? `${setupLines.map(line => `${indent}  ${line}`).join('\n')}\n`
-          : '';
+      // Extract setup code (everything outside ready/update functions)
+      let setupCode = normalizedCode;
+      if (readyMatch) {
+        setupCode = setupCode.replace(readyMatch[0], '');
+      }
+      if (updateMatch) {
+        setupCode = setupCode.replace(updateMatch[0], '');
+      }
+      
+      const setupLines = setupCode
+        .split('\n')
+        .map(line => {
+          const trimmed = line.trimEnd();
+          // Add type annotations to common variables
+          if (trimmed.match(/^(let|const)\s+body\s*=/)) {
+            return trimmed.replace(/^(let|const)\s+body\s*=/, '$1 body: any =');
+          }
+          if (trimmed.match(/^(let|const)\s+playableBounds\s*=/)) {
+            return trimmed.replace(/^(let|const)\s+playableBounds\s*=/, '$1 playableBounds: any =');
+          }
+          if (trimmed.match(/^(let|const)\s+(\w+Wall)\s*=/)) {
+            return trimmed.replace(/^(let|const)\s+(\w+Wall)\s*=/, '$1 $2: any =');
+          }
+          return trimmed;
+        })
+        .filter(line => line.trim().length > 0 && !line.startsWith('// Script'));
+
+      const setupBlock = setupLines.length
+        ? `${setupLines.map(line => `${indent}  ${line}`).join('\n')}\n`
+        : '';
+
+      // Helper to add type annotations to callback parameters
+      const addCallbackTypes = (code) => {
+        // Add type to onCollide callbacks: (other) => becomes (other: any) =>
+        return code.replace(/\((\w+)\)\s*=>/g, '($1: any) =>');
+      };
+
+      const readyBody = readyMatch && readyMatch[1].trim() ? addCallbackTypes(readyMatch[1].trim()) : '';
+      const updateParams = updateMatch && updateMatch[1] ? updateMatch[1].trim() : '';
+      const updateBody = updateMatch && updateMatch[2].trim() ? addCallbackTypes(updateMatch[2].trim()) : '';
+
+      // Build component with ready() and update() methods
+      const componentMethods = [];
+      
+      if (readyBody) {
+        const readyBlock = indentBlock(readyBody, `${indent}      `);
+        const readyMethod = [
+          `${indent}    ready() {`,
+          `${readyBlock}`,
+          `${indent}    }`
+        ].join('\n');
+        componentMethods.push(readyMethod);
+      }
+
+      if (updateBody) {
         const updateBlock = indentBlock(updateBody, `${indent}      `);
-        lines.push(
-          `${indent}// Custom script component for ${obj.name}`,
-          `${indent}const ${scriptVarName} = function() {`,
-          `${indent}  const self = this; // Capture reference to GameObject`,
-          `${setupBlock}${indent}  return {`,
-          `${indent}    id: "${tag}_script",`,
-          `${indent}    // Bind update to the GameObject so 'this' refers to the GameObject`,
-          `${indent}    update: function(${params}) {`,
+        // Add type annotation to dt parameter if not present
+        const typedParams = updateParams && !updateParams.includes(':')
+          ? `${updateParams}: number`
+          : updateParams || 'dt: number';
+        const updateMethod = [
+          `${indent}    update(${typedParams}) {`,
           `${updateBlock}`,
-          `${indent}    }.bind(self)`,
-          `${indent}  };`,
-          `${indent}};`,
-        );
-      } else if (normalizedCode.trim().length) {
-        const setupLines = normalizedCode
-          .split('\n')
-          .map(line => line.trimEnd())
-          .filter(line => line.trim().length > 0 && !line.startsWith('// Script'));
-        const setupBlock = setupLines.length
-          ? `${setupLines.map(line => `${indent}  ${line}`).join('\n')}\n`
-          : '';
+          `${indent}    }`
+        ].join('\n');
+        componentMethods.push(updateMethod);
+      }
+
+      if (componentMethods.length > 0 || setupBlock) {
+        const methodsStr = componentMethods.join(',\n');
+        const bindStatements = [];
+        if (readyBody) {
+          bindStatements.push(`${indent}  comp.ready = comp.ready.bind(this);`);
+        }
+        if (updateBody) {
+          bindStatements.push(`${indent}  comp.update = comp.update.bind(this);`);
+        }
+        const bindBlock = bindStatements.length > 0 ? `\n${bindStatements.join('\n')}\n` : '';
+        
         lines.push(
           `${indent}// Custom script component for ${obj.name}`,
-          `${indent}const ${scriptVarName} = function() {`,
-          `${indent}  const self = this; // Capture reference to GameObject`,
-          `${setupBlock}${indent}  return {`,
-          `${indent}    id: "${tag}_script"`,
+          `${indent}const ${scriptVarName} = function(this: any) {`,
+          `${setupBlock}${indent}  const comp = {`,
+          `${indent}    id: "${tag}_script"${componentMethods.length ? ',' : ''}`,
+          methodsStr,
           `${indent}  };`,
+          bindBlock,
+          `${indent}  return comp;`,
           `${indent}};`,
         );
       } else {
@@ -512,7 +598,15 @@ export function generateSceneCode(
     lines.push(`${indent}// ${obj.name}`);
     lines.push(`${indent}const ${varName} = ${addCall};`);
     if (scriptVarName) {
-      lines.push(`${indent}${varName}.add(${scriptVarName}.call(${varName}));`);
+      const scriptComp = obj.components.find(c => c.type === 'Script');
+      const hasReady = scriptComp && /function\s+ready\s*\(\s*\)\s*\{/.test(scriptComp.code);
+      
+      lines.push(`${indent}const ${varName}_comp = ${scriptVarName}.call(${varName});`);
+      lines.push(`${indent}${varName}.add(${varName}_comp);`);
+      
+      if (hasReady) {
+        lines.push(`${indent}readyComponents.push(${varName}_comp);`);
+      }
     }
 
     for (const child of obj.children || []) {
@@ -526,10 +620,34 @@ export function generateSceneCode(
     return lines.join('\n');
   };
 
+  // Track which objects have ready() functions for Phase 2 initialization
+  const objectsWithReady = [];
+  const collectObjectsWithReady = (nodes = []) => {
+    for (const node of nodes) {
+      const scriptComp = node.components.find(c => c.type === 'Script');
+      if (scriptComp && scriptComp.code) {
+        const hasReady = /function\s+ready\s*\(\s*\)\s*\{/.test(scriptComp.code);
+        if (hasReady) {
+          const varName = identifierMap.get(node);
+          if (varName) {
+            objectsWithReady.push(varName);
+          }
+        }
+      }
+      collectObjectsWithReady(node.children || []);
+    }
+  };
+  collectObjectsWithReady(gameObjects || []);
+
   const gameObjectsCode = (gameObjects || [])
     .map(obj => generateObjectBlock(obj, null, 1))
     .filter(Boolean)
     .join('\n\n');
+  
+  // Phase 2: Generate ready() initialization calls
+  const phase2InitCode = objectsWithReady.length > 0
+    ? `\n\n  // ===== PHASE 2: Initialize all scripts (ready functions) =====\n  // Now all objects exist in the scene, safe to reference them\n  for (const comp of readyComponents) {\n    if (comp.ready) comp.ready();\n  }`
+    : '';
   
   const importList = Array.from(components).join(', ');
   const importStatement = importList 
@@ -542,9 +660,12 @@ export function generateSceneCode(
   
   // Build complete scene function
   const viewportLine = '  const viewport = ctx.getViewport();';
+  const readyArrayDeclaration = objectsWithReady.length > 0
+    ? '\n  const readyComponents: any[] = [];'
+    : '';
 
   const autoSceneBlock = flattenedObjects.length > 0
-    ? `${viewportLine}\n\n${gameObjectsCode}`
+    ? `${viewportLine}${readyArrayDeclaration}\n\n  // ===== PHASE 1: Create all scene objects =====\n${gameObjectsCode}${phase2InitCode}`
     : '  // Add GameObjects using the editor!';
 
   const userImportsBlock =

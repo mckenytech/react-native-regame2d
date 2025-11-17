@@ -11,6 +11,7 @@ import { RenderSystem } from './systems/RenderSystem';
 export * from './components';
 export { GamePad } from './components/GamePad';
 export type { Component, GameObject, Vec2 } from './types';
+export type { GameContext } from './core/GameContext';
 
 interface GameProps {
   width?: number;

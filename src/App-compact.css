@@ -167,6 +167,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  overflow: visible;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  width: 100%;
 }
 
 .panelTabs {
@@ -463,8 +467,19 @@ body {
 }
 
 /* CENTER PANEL - Scene View */
+.rightSidebar {
+  width: 260px;
+  background-color: #252526;
+  border-left: 1px solid #3e3e42;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0; /* Allow flex item to shrink properly for scrolling */
+}
+
 .sceneView {
   flex: 1;
+  min-width: 0; /* Allow flex item to shrink below content size */
   background-color: #1e1e1e;
   display: flex;
   flex-direction: column;
@@ -573,6 +588,8 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+  overflow: visible;
 }
 
 .zoomControls {
@@ -580,6 +597,8 @@ body {
   align-items: center;
   gap: 6px;
   margin-left: 12px;
+  flex-shrink: 0;
+  overflow: visible;
 }
 
 .zoomButton {
@@ -622,6 +641,20 @@ body {
   position: relative;
 }
 
+/* Script drag-and-drop visual feedback */
+.drag-over-script {
+  animation: pulse-script-drag 0.6s ease-in-out infinite;
+}
+
+@keyframes pulse-script-drag {
+  0%, 100% {
+    filter: brightness(1.2);
+  }
+  50% {
+    filter: brightness(1.4);
+  }
+}
+
 .toolButton {
   width: 28px;
   height: 28px;
@@ -659,12 +692,11 @@ body {
 
 /* RIGHT PANEL - Inspector (Narrow) */
 .inspector {
-  width: 260px;
-  background-color: #252526;
-  border-left: 1px solid #3e3e42;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0; /* Allow flex item to shrink properly */
+  overflow: hidden; /* Contain scrolling within inspector */
 }
 
 .inspectorContent {

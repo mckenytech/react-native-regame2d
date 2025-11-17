@@ -25,17 +25,14 @@
 
 .scene-view-canvas-container {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: auto;
   padding: 20px;
+  cursor: default;
 }
 
 .scene-view-canvas {
   position: relative;
-  border: 2px solid #555;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  /* no border/shadow here; camera frame will show viewport */
 }
 
 .scene-grid {
@@ -68,6 +65,29 @@
   border: 3px solid #007acc;
   border-radius: 4px;
   pointer-events: none;
+}
+
+.scene-object.drag-over {
+  filter: drop-shadow(0 0 12px #00ff88);
+}
+
+.scene-object.drag-over::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 3px dashed #00ff88;
+  border-radius: 4px;
+  pointer-events: none;
+  animation: pulse-drag 0.6s ease-in-out infinite;
+}
+
+@keyframes pulse-drag {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .scene-rect {
@@ -112,6 +132,20 @@
   padding: 0 15px;
   color: #fff;
   font-size: 12px;
+}
+
+/* Visual camera rectangle (game viewport) */
+.camera-frame {
+  border: 2px solid rgba(0, 255, 136, 0.95); /* bright lime */
+  box-shadow: 0 0 0 1px rgba(0, 255, 136, 0.35);
+  background: repeating-linear-gradient(
+      45deg,
+      rgba(0, 255, 136, 0.035),
+      rgba(0, 255, 136, 0.035) 8px,
+      rgba(0, 255, 136, 0.08) 8px,
+      rgba(0, 255, 136, 0.08) 16px
+  );
+  pointer-events: none;
 }
 
 

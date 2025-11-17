@@ -150,6 +150,12 @@ function AddObjectModal({ onSelect, onCancel }) {
       icon: '⚪',
     },
     {
+      id: 'text',
+      label: 'Text',
+      description: 'Text label',
+      icon: '📝',
+    },
+    {
       id: 'sprite',
       label: 'Sprite',
       description: 'Draw or import pixel art',
@@ -802,6 +808,8 @@ export default function App() {
   const [activeTool, setActiveTool] = useState('move');
   const [isResizing, setIsResizing] = useState(false);
   const resizeStateRef = useRef(null);
+  const [isRotating, setIsRotating] = useState(false);
+  const rotateStateRef = useRef(null);
   
   // Scene management
   const [availableScenes, setAvailableScenes] = useState(['MainScene']);
@@ -814,6 +822,7 @@ export default function App() {
   // Context menu
   const [contextMenu, setContextMenu] = useState(null); // { x, y, objectId }
   const [showComponentMenu, setShowComponentMenu] = useState(false);
+  const [showAddNodeMenu, setShowAddNodeMenu] = useState(false);
   
   // Inspector section collapse state
   const [expandedSections, setExpandedSections] = useState(new Set(['transform', 'name']));
@@ -1069,14 +1078,23 @@ export default function App() {
 
   const flatGameObjects = flattenGameObjects(gameObjects);
 
-  // Determine scene canvas bounds so 0,0 maps to top-left of viewport
-  const workspacePadding = 240;
+  // Determine scene canvas bounds - allow scrolling in all directions (including negative coords)
+  const workspacePadding = 2000; // Large padding to allow panning in all directions
   const renderableObjects = flatGameObjects.filter((obj) => obj.visible !== false);
 
+  // Calculate bounds including negative coordinates
+  const minObjectLeft = flatGameObjects.reduce((min, obj) => {
+    const x = obj?.transform?.x ?? 0;
+    return Math.min(min, x);
+  }, 0);
   const maxObjectRight = flatGameObjects.reduce((max, obj) => {
     const x = obj?.transform?.x ?? 0;
     const width = obj?.transform?.width ?? 0;
     return Math.max(max, x + width);
+  }, 0);
+  const minObjectTop = flatGameObjects.reduce((min, obj) => {
+    const y = obj?.transform?.y ?? 0;
+    return Math.min(min, y);
   }, 0);
   const maxObjectBottom = flatGameObjects.reduce((max, obj) => {
     const y = obj?.transform?.y ?? 0;
@@ -1084,20 +1102,67 @@ export default function App() {
     return Math.max(max, y + height);
   }, 0);
 
-  const canvasContentWidth = Math.max(viewportWidth, maxObjectRight) + workspacePadding;
-  const canvasContentHeight = Math.max(viewportHeight, maxObjectBottom) + workspacePadding;
+  // Canvas content spans from min to max with padding on all sides
+  // Center is at (0,0) in world space, but canvas origin is at top-left
+  // Make canvas large enough to contain all objects with padding, centered on (0,0)
+  // Ensure minimum size for scrolling in all directions (always at least 4000x4000)
+  const objectRangeX = Math.max(2000, maxObjectRight - minObjectLeft, viewportWidth * 3);
+  const objectRangeY = Math.max(2000, maxObjectBottom - minObjectTop, viewportHeight * 3);
+  const canvasContentWidth = Math.max(4000, objectRangeX + workspacePadding * 2);
+  const canvasContentHeight = Math.max(4000, objectRangeY + workspacePadding * 2);
+  // Position world (0,0) in the middle of the canvas content
+  const canvasCenterOffsetX = canvasContentWidth / 2;
+  const canvasCenterOffsetY = canvasContentHeight / 2;
+
+  const handleRecenter = useCallback(() => {
+    const canvas = sceneCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    // Center on world (0,0) which is at canvasCenterOffsetX, canvasCenterOffsetY
+    const targetScrollLeft = canvasCenterOffsetX * canvasZoom - rect.width / 2;
+    const targetScrollTop = canvasCenterOffsetY * canvasZoom - rect.height / 2;
+    requestAnimationFrame(() => {
+      canvas.scrollLeft = Math.max(0, targetScrollLeft);
+      canvas.scrollTop = Math.max(0, targetScrollTop);
+    });
+  }, [canvasZoom, canvasCenterOffsetX, canvasCenterOffsetY]);
+
+  // Center scroll position on mount so (0,0) is visible in the middle
+  useEffect(() => {
+    const canvas = sceneCanvasRef.current;
+    if (!canvas) return;
+    
+    // Wait for layout to complete
+    const centerScroll = () => {
+      const rect = canvas.getBoundingClientRect();
+      // Center on world (0,0) which is at canvasCenterOffsetX, canvasCenterOffsetY
+      // Account for zoom
+      const targetScrollLeft = canvasCenterOffsetX * canvasZoom - rect.width / 2;
+      const targetScrollTop = canvasCenterOffsetY * canvasZoom - rect.height / 2;
+      canvas.scrollLeft = Math.max(0, targetScrollLeft);
+      canvas.scrollTop = Math.max(0, targetScrollTop);
+    };
+    
+    // Try immediately and after a short delay to ensure layout is complete
+    requestAnimationFrame(() => {
+      centerScroll();
+      setTimeout(centerScroll, 100);
+    });
+  }, [canvasZoom, canvasCenterOffsetX, canvasCenterOffsetY]);
 
   const getCanvasCoordinates = useCallback(
     (event) => {
       const canvas = sceneCanvasRef.current;
       if (!canvas) return { x: 0, y: 0 };
       const rect = canvas.getBoundingClientRect();
+      // Convert screen coordinates to world coordinates
+      // Screen coords include the offset, so subtract it to get world coords
       return {
-        x: (event.clientX - rect.left + canvas.scrollLeft) / canvasZoom,
-        y: (event.clientY - rect.top + canvas.scrollTop) / canvasZoom,
+        x: (event.clientX - rect.left + canvas.scrollLeft) / canvasZoom - canvasCenterOffsetX,
+        y: (event.clientY - rect.top + canvas.scrollTop) / canvasZoom - canvasCenterOffsetY,
       };
     },
-    [canvasZoom]
+    [canvasZoom, canvasCenterOffsetX, canvasCenterOffsetY]
   );
 
   const handleCanvasWheel = useCallback(
@@ -1129,31 +1194,109 @@ export default function App() {
     } = resizeStateRef.current;
 
     const { x: mouseX, y: mouseY } = getCanvasCoordinates(event);
-    const deltaX = mouseX - startMouseX;
-    const deltaY = mouseY - startMouseY;
+    let deltaX = mouseX - startMouseX;
+    let deltaY = mouseY - startMouseY;
 
     const MIN_SIZE = 8;
-    let newX = startX;
-    let newY = startY;
+    
+    // Get the current object to check its anchor and rotation
+    const currentObj = gameObjects.find(obj => obj.id === objectId);
+    const anchor = currentObj?.transform?.anchor || 'center';
+    const rotation = currentObj?.transform?.rotation || 0;
+    
+    // If object is rotated, transform mouse delta from screen space to local space
+    if (rotation && Math.abs(rotation) > 0.01) {
+      const rad = -(rotation * Math.PI / 180); // Negative for inverse rotation
+      const rotatedDeltaX = deltaX * Math.cos(rad) - deltaY * Math.sin(rad);
+      const rotatedDeltaY = deltaX * Math.sin(rad) + deltaY * Math.cos(rad);
+      deltaX = rotatedDeltaX;
+      deltaY = rotatedDeltaY;
+    }
+
+    // Calculate anchor offset as fraction of width/height
+    // For "topleft": anchorOffsetX=0, anchorOffsetY=0 (anchor at left/top edge)
+    // For "center": anchorOffsetX=0.5, anchorOffsetY=0.5 (anchor at center)
+    // For "botright": anchorOffsetX=1, anchorOffsetY=1 (anchor at right/bottom edge)
+    const getAnchorOffsets = (anchor) => {
+      switch (anchor) {
+        case 'topleft': return { x: 0, y: 0 };
+        case 'top': return { x: 0.5, y: 0 };
+        case 'topright': return { x: 1, y: 0 };
+        case 'left': return { x: 0, y: 0.5 };
+        case 'center': return { x: 0.5, y: 0.5 };
+        case 'right': return { x: 1, y: 0.5 };
+        case 'botleft': return { x: 0, y: 1 };
+        case 'bot': return { x: 0.5, y: 1 };
+        case 'botright': return { x: 1, y: 1 };
+        default: return { x: 0.5, y: 0.5 };
+      }
+    };
+
+    const anchorOffsets = getAnchorOffsets(anchor);
+
+    // Calculate the world position of the opposite corner/edge that should stay fixed
+    // Opposite corner offset is (1 - anchorOffset) for each dimension
+    let fixedPointX = startX;
+    let fixedPointY = startY;
+
+    if (handle.includes('w')) {
+      // Dragging from west (left), so east (right) edge should stay fixed
+      fixedPointX = startX + (1 - anchorOffsets.x) * startWidth;
+    } else if (handle.includes('e')) {
+      // Dragging from east (right), so west (left) edge should stay fixed
+      fixedPointX = startX - anchorOffsets.x * startWidth;
+    }
+
+    if (handle.includes('n')) {
+      // Dragging from north (top), so south (bottom) edge should stay fixed
+      fixedPointY = startY + (1 - anchorOffsets.y) * startHeight;
+    } else if (handle.includes('s')) {
+      // Dragging from south (bottom), so north (top) edge should stay fixed
+      fixedPointY = startY - anchorOffsets.y * startHeight;
+    }
+
+    // Calculate new size based on mouse delta
     let newWidth = startWidth;
     let newHeight = startHeight;
 
     if (handle.includes('e')) {
       newWidth = Math.max(MIN_SIZE, startWidth + deltaX);
+    } else if (handle.includes('w')) {
+      newWidth = Math.max(MIN_SIZE, startWidth - deltaX);
     }
+
     if (handle.includes('s')) {
       newHeight = Math.max(MIN_SIZE, startHeight + deltaY);
+    } else if (handle.includes('n')) {
+      newHeight = Math.max(MIN_SIZE, startHeight - deltaY);
     }
-    if (handle.includes('w')) {
-      const proposedWidth = Math.max(MIN_SIZE, startWidth - deltaX);
-      newX = startX + (startWidth - proposedWidth);
-      newWidth = proposedWidth;
+
+    // Calculate new anchor position to keep the fixed point at the same location
+    let newX = startX;
+    let newY = startY;
+
+    // For rotated objects, keep the anchor point fixed (resize from anchor)
+    // For non-rotated objects, keep the opposite edge/corner fixed
+    if (!rotation || Math.abs(rotation) < 0.01) {
+      if (handle.includes('w') || handle.includes('e')) {
+        // Horizontal resize: calculate new anchor X to keep fixed point in place
+        if (handle.includes('w')) {
+          newX = fixedPointX - (1 - anchorOffsets.x) * newWidth;
+        } else {
+          newX = fixedPointX + anchorOffsets.x * newWidth;
+        }
+      }
+
+      if (handle.includes('n') || handle.includes('s')) {
+        // Vertical resize: calculate new anchor Y to keep fixed point in place
+        if (handle.includes('n')) {
+          newY = fixedPointY - (1 - anchorOffsets.y) * newHeight;
+        } else {
+          newY = fixedPointY + anchorOffsets.y * newHeight;
+        }
+      }
     }
-    if (handle.includes('n')) {
-      const proposedHeight = Math.max(MIN_SIZE, startHeight - deltaY);
-      newY = startY + (startHeight - proposedHeight);
-      newHeight = proposedHeight;
-    }
+    // else: keep newX = startX, newY = startY (anchor point stays fixed)
 
     setGameObjects((prev) =>
       prev.map((obj) =>
@@ -1220,6 +1363,86 @@ export default function App() {
     };
   }, [handleResizePointerMove, handleResizePointerUp]);
 
+  // Rotation handlers
+  const handleRotatePointerMove = useCallback((event) => {
+    if (!rotateStateRef.current) return;
+    const { x, y } = getCanvasCoordinates(event);
+    const { objectId, anchorX, anchorY, startAngle } = rotateStateRef.current;
+    
+    // Calculate angle from anchor point to mouse
+    const dx = x - anchorX;
+    const dy = y - anchorY;
+    const currentAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+    
+    // Calculate rotation delta
+    const deltaAngle = currentAngle - startAngle;
+    
+    // Update object rotation
+    setGameObjects((prev) =>
+      updateObjectInTree(prev, objectId, (target) => ({
+        ...target,
+        transform: {
+          ...target.transform,
+          rotation: Math.round(rotateStateRef.current.startRotation + deltaAngle),
+        },
+      }))
+    );
+  }, [getCanvasCoordinates]);
+
+  const handleRotatePointerUp = useCallback(() => {
+    if (!rotateStateRef.current) return;
+    rotateStateRef.current = null;
+    setIsRotating(false);
+    window.removeEventListener('mousemove', handleRotatePointerMove);
+    window.removeEventListener('mouseup', handleRotatePointerUp);
+    if (previousToolRef.current && previousToolRef.current !== 'rotate') {
+      setActiveTool(previousToolRef.current);
+    }
+    previousToolRef.current = null;
+  }, [handleRotatePointerMove, setActiveTool]);
+
+  const handleRotateStart = useCallback((event, object) => {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    event.preventDefault();
+    const { x, y } = getCanvasCoordinates(event);
+    
+    // Anchor point is transform.x/y
+    const anchorX = object.transform.x;
+    const anchorY = object.transform.y;
+    
+    // Calculate initial angle from anchor to mouse
+    const dx = x - anchorX;
+    const dy = y - anchorY;
+    const startAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+    
+    rotateStateRef.current = {
+      objectId: object.id,
+      anchorX,
+      anchorY,
+      startAngle,
+      startRotation: object.transform.rotation || 0,
+    };
+    setSelectedObject(object.id);
+    setIsDragging(false);
+    if (activeTool !== 'rotate') {
+      previousToolRef.current = activeTool;
+      setActiveTool('rotate');
+    } else {
+      previousToolRef.current = null;
+    }
+    setIsRotating(true);
+    window.addEventListener('mousemove', handleRotatePointerMove);
+    window.addEventListener('mouseup', handleRotatePointerUp);
+  }, [activeTool, getCanvasCoordinates, handleRotatePointerMove, handleRotatePointerUp, setActiveTool]);
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', handleRotatePointerMove);
+      window.removeEventListener('mouseup', handleRotatePointerUp);
+    };
+  }, [handleRotatePointerMove, handleRotatePointerUp]);
+
   useEffect(() => {
     if (activeTool !== 'resize' && isResizing) {
       handleResizePointerUp();
@@ -1230,7 +1453,10 @@ export default function App() {
     if (activeTool !== 'move' && isDragging) {
       setIsDragging(false);
     }
-  }, [activeTool, isDragging]);
+    if (activeTool !== 'rotate' && isRotating) {
+      handleRotatePointerUp();
+    }
+  }, [activeTool, isDragging, isRotating, handleRotatePointerUp]);
 
   // Handle viewport preset change
   const handleViewportPresetChange = (preset) => {
@@ -1260,6 +1486,14 @@ export default function App() {
     setGameObjects((prev) => normalizeGameObjects(moveObjectInTree(prev, sourceId, targetId, position)));
   }, []);
 
+  // Check if drag event contains a file asset (use during onDragOver)
+  function isDraggingAssetFile(event) {
+    if (!event?.dataTransfer) return false;
+    const types = event.dataTransfer.types;
+    return types.includes('application/regame-asset');
+  }
+
+  // Extract script path from drag event (use during onDrop)
   function extractScriptPathFromDragEvent(event) {
     if (!event?.dataTransfer) return null;
     const assetPath =
@@ -1282,12 +1516,13 @@ export default function App() {
   };
 
   const handleHierarchyDragOver = (event, targetId) => {
-    const scriptPath = extractScriptPathFromDragEvent(event);
-    if (scriptPath) {
+    // Check if dragging a file asset (can't read data during dragOver)
+    if (isDraggingAssetFile(event)) {
       event.preventDefault();
       setDragOverObjectId(targetId);
       return;
     }
+    // Otherwise check if dragging a hierarchy object
     if (!draggedObjectId || draggedObjectId === targetId) return;
     event.preventDefault();
     setDragOverObjectId(targetId);
@@ -1336,11 +1571,15 @@ export default function App() {
   };
 
   const handleHierarchyDropRoot = (event) => {
-    const scriptPath = extractScriptPathFromDragEvent(event);
-    if (scriptPath) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
+    // Check if dropping a file asset
+    if (isDraggingAssetFile(event)) {
+      const scriptPath = extractScriptPathFromDragEvent(event);
+      if (scriptPath) {
+        event.preventDefault();
+        event.stopPropagation();
+        // Scripts can't be dropped on root, only on objects
+        return;
+      }
     }
     if (!draggedObjectId) return;
     event.preventDefault();
@@ -1576,7 +1815,7 @@ export default function App() {
   const sceneToolButtons = [
     { id: 'move', icon: '⤨', label: 'Move' },
     { id: 'resize', icon: '⤡', label: 'Resize' },
-    { id: 'rotate', icon: '⟳', label: 'Rotate', disabled: true },
+    { id: 'rotate', icon: '⟳', label: 'Rotate' },
     { id: 'bounds', icon: '▢', label: 'Fit Bounds', disabled: true },
     { id: 'pan', icon: '🖐', label: 'Pan', disabled: true },
   ];
@@ -1714,6 +1953,53 @@ export default function App() {
       components: obj.components?.map(normalizeComponent) ?? [],
       children: normalizeGameObjects(obj.children ?? []),
     }));
+
+  // Migrate old GameObjects to have correct pre-attached components
+  const migrateGameObjects = (objects = []) =>
+    objects.map((obj) => {
+      const components = [...(obj.components || [])];
+      
+      // If rect type and no Shape component, add one
+      if (obj.type === 'rect' && !components.some(c => c.type === 'Shape')) {
+        components.unshift({
+          type: 'Shape',
+          shapeType: 'Rectangle',
+          color: '#6495ed',
+          filled: true,
+          enabled: true
+        });
+      }
+      
+      // If circle type and no Shape component, add one
+      if (obj.type === 'circle' && !components.some(c => c.type === 'Shape')) {
+        components.unshift({
+          type: 'Shape',
+          shapeType: 'Circle',
+          color: '#ff6464',
+          filled: true,
+          enabled: true
+        });
+      }
+      
+      // If text type and no Text component, add one
+      if (obj.type === 'text' && !components.some(c => c.type === 'Text')) {
+        components.unshift({
+          type: 'Text',
+          text: obj.name || 'Text',
+          textSize: 16,
+          font: null,
+          align: 'left',
+          color: '#ffffff',
+          enabled: true
+        });
+      }
+      
+      return {
+        ...obj,
+        components,
+        children: migrateGameObjects(obj.children ?? [])
+      };
+    });
 
   function flattenGameObjects(objects = []) {
     const result = [];
@@ -1921,31 +2207,71 @@ export default function App() {
     );
   };
 
-  const addChildGameObject = (parentId) => {
+  const createGameObjectWithType = (parentId, nodeType) => {
     const parent = parentId ? findObjectById(gameObjects, parentId) : null;
     const totalCount = flatGameObjects.length;
     const childIndex = parent?.children?.length ?? 0;
-    const childName = parent ? `${parent.name}_${childIndex + 1}` : `Node ${totalCount + 1}`;
+    
+    let typeName = nodeType === 'rect' ? 'Rectangle' : nodeType === 'circle' ? 'Circle' : nodeType === 'text' ? 'Text' : 'Node';
+    const childName = parent ? `${parent.name}_${childIndex + 1}` : `${typeName} ${totalCount + 1}`;
+    
+    const components = [];
+    // Children are positioned at parent's position by default (like Kaplay)
+    // This way child at (0,0) relative appears at parent's anchor point
+    let transform = {
+      x: parent ? parent.transform.x : 0,
+      y: parent ? parent.transform.y : 0,
+      width: 100,
+      height: 100,
+      scaleX: 1,
+      scaleY: 1,
+      rotation: 0,
+    };
+
+    // Pre-attach appropriate component based on type
+    if (nodeType === 'rect') {
+      components.push({
+        type: 'Shape',
+        shapeType: 'Rectangle',
+        color: '#6495ed',
+        filled: true,
+        enabled: true
+      });
+    } else if (nodeType === 'circle') {
+      components.push({
+        type: 'Shape',
+        shapeType: 'Circle',
+        color: '#ff6464',
+        filled: true,
+        enabled: true
+      });
+    } else if (nodeType === 'text') {
+      components.push({
+        type: 'Text',
+        text: 'Text',
+        textSize: 16,
+        font: null,
+        align: 'left',
+        color: '#ffffff',
+        enabled: true
+      });
+      transform.width = 200;
+      transform.height = 40;
+    }
+
     const newNode = normalizeGameObjects([
       {
         id: generateObjectId(),
         name: childName,
-        type: 'rect',
-        transform: {
-          x: 0,
-          y: 0,
-          width: 100,
-          height: 100,
-          scaleX: 1,
-          scaleY: 1,
-          rotation: 0,
-        },
-        components: [],
+        type: nodeType,
+        transform,
+        components,
         tags: [],
         visible: true,
         children: [],
       },
     ])[0];
+    
     setGameObjects((prev) => normalizeGameObjects(appendChildInTree(prev, parentId, newNode)));
     setExpandedNodes((prev) => {
       const next = new Set(prev);
@@ -1956,10 +2282,16 @@ export default function App() {
     setSelectedObject(newNode.id);
   };
 
+  const addChildGameObject = (parentId) => {
+    // Default to rectangle for backward compatibility
+    createGameObjectWithType(parentId, 'rect');
+  };
+
   const getNodeIcon = (node) => {
     if (node.type === 'circle') return '⚪';
     if (node.type === 'rect') return '▭';
     if (node.type === 'sprite') return '🖼️';
+    if (node.type === 'text') return '📝';
     return '📦';
   };
 
@@ -1975,6 +2307,8 @@ export default function App() {
         return '📜';
       case 'Shape':
         return '⬛';
+      case 'Text':
+        return '📝';
       default:
         return '🔹';
     }
@@ -3029,7 +3363,9 @@ export default function App() {
         
         setCurrentProject(project);
         const hydratedObjects = await hydrateGameObjects(sceneData.objects || [], projectPath);
-        setGameObjects(hydratedObjects);
+        // Migrate old objects to have correct components
+        const migratedObjects = migrateGameObjects(hydratedObjects);
+        setGameObjects(migratedObjects);
         
         // Restore viewport settings if available
         if (sceneData.viewport) {
@@ -3138,18 +3474,49 @@ export default function App() {
       const baseNameMap = {
         rect: 'Rectangle',
         circle: 'Circle',
+        text: 'Text',
         empty: 'Node',
       };
       const baseName = baseNameMap[type] || 'Node';
       const newIndex = flatGameObjects.length + 1;
-      const defaultWidth = type === 'circle' ? 80 : 120;
-      const defaultHeight = type === 'circle' ? 80 : 120;
+      const defaultWidth = type === 'circle' ? 80 : type === 'text' ? 200 : 120;
+      const defaultHeight = type === 'circle' ? 80 : type === 'text' ? 40 : 120;
+
+      // Pre-attach appropriate component based on type
+      const components = [];
+      if (type === 'rect') {
+        components.push({
+          type: 'Shape',
+          shapeType: 'Rectangle',
+          color: '#6495ed',
+          filled: true,
+          enabled: true
+        });
+      } else if (type === 'circle') {
+        components.push({
+          type: 'Shape',
+          shapeType: 'Circle',
+          color: '#ff6464',
+          filled: true,
+          enabled: true
+        });
+      } else if (type === 'text') {
+        components.push({
+          type: 'Text',
+          text: 'Text',
+          textSize: 16,
+          font: null,
+          align: 'left',
+          color: '#ffffff',
+          enabled: true
+        });
+      }
 
       const newObject = normalizeGameObjects([
         {
           id,
           name: `${baseName} ${newIndex}`,
-          type: type === 'circle' ? 'circle' : 'rect',
+          type: type === 'circle' ? 'circle' : type === 'text' ? 'text' : 'rect',
           transform: {
             x: 10, // Top-left of viewport
             y: 10,
@@ -3160,7 +3527,7 @@ export default function App() {
             rotation: 0,
             anchor: 'topleft', // Top-left anchor by default
           },
-          components: [],
+          components,
           visible: true,
           tags: [],
           children: [],
@@ -3266,6 +3633,12 @@ export default function App() {
       newComponent.isStatic = false;
       newComponent.velocity = { x: 0, y: 0 };
       newComponent.acceleration = { x: 0, y: 0 };
+    } else if (componentType === 'Text') {
+      newComponent.text = 'Text';
+      newComponent.textSize = 16;
+      newComponent.font = null; // null = system default
+      newComponent.align = 'left'; // 'left' | 'center' | 'right'
+      newComponent.color = '#ffffff';
     }
 
     setGameObjects((prev) =>
@@ -3537,11 +3910,20 @@ export default function App() {
       return;
     }
     
-    // Handle object dragging
+    // Handle object interaction
     if (!e.target.closest('.game-object')) return;
     e.stopPropagation();
     setSelectedObject(obj.id);
-    if (activeTool !== 'move' || e.button !== 0) return;
+    if (e.button !== 0) return;
+    
+    // Handle rotation
+    if (activeTool === 'rotate') {
+      handleRotateStart(e, obj);
+      return;
+    }
+    
+    // Handle dragging
+    if (activeTool !== 'move') return;
     setIsDragging(true);
     const { x, y } = getCanvasCoordinates(e);
     // dragOffset is relative to the anchor point position (transform.x/y)
@@ -3564,7 +3946,7 @@ export default function App() {
     }
     
     // Handle object dragging
-    if (!isDragging || !selectedObject || activeTool !== 'move' || isResizing) return;
+    if (!isDragging || !selectedObject || activeTool !== 'move' || isResizing || isRotating) return;
     const { x, y } = getCanvasCoordinates(e);
     const obj = findObjectById(gameObjects, selectedObject);
     if (!obj) return;
@@ -3954,7 +4336,9 @@ export default function App() {
       }
       const sanitizedRelative = sanitizeRelativeScriptPath(userInput);
       const fileStem = sanitizedRelative || defaultStem;
-      scriptPath = toForwardSlashPath(`scripts/${fileStem}${fileStem.toLowerCase().endsWith('.js') ? '' : '.js'}`);
+      // Use .ts extension for TypeScript support
+      const hasExtension = fileStem.toLowerCase().endsWith('.js') || fileStem.toLowerCase().endsWith('.ts');
+      scriptPath = toForwardSlashPath(`scripts/${fileStem}${hasExtension ? '' : '.ts'}`);
     }
 
     if (currentProject?.scenePath && scriptPath) {
@@ -4703,6 +5087,14 @@ export default function App() {
                 >
                   Reset
                 </button>
+                <button
+                  type="button"
+                  className="zoomResetButton"
+                  onClick={handleRecenter}
+                  title="Recenter Camera on (0,0)"
+                >
+                  Recenter
+                </button>
               </div>
             </div>
           </div>
@@ -4727,6 +5119,8 @@ export default function App() {
                 style={{
                   width: `${canvasContentWidth}px`,
                   height: `${canvasContentHeight}px`,
+                  minWidth: '4000px',
+                  minHeight: '4000px',
                 }}
               >
                 <div
@@ -4753,6 +5147,7 @@ export default function App() {
                     renderableObjects.map((obj) => {
                       const shapeComponent = obj.components.find((c) => c.type === 'Shape');
                       const spriteComponent = obj.components.find((c) => c.type === 'Sprite');
+                      const textComponent = obj.components.find((c) => c.type === 'Text');
                       const areaComponent = obj.components.find((c) => c.type === 'Area');
 
                       const isSprite = obj.type === 'sprite' || Boolean(spriteComponent);
@@ -4770,7 +5165,7 @@ export default function App() {
                       if (shapeComponent?.color) {
                         fillColor = shapeComponent.color;
                       }
-                      if (isSprite) {
+                      if (isSprite || textComponent) {
                         fillColor = 'transparent';
                       }
 
@@ -4842,11 +5237,11 @@ export default function App() {
                       return (
                         <React.Fragment key={obj.id}>
                           <div
-                            className={`game-object ${selectedObject === obj.id ? 'selected-object' : ''}`}
+                            className={`game-object ${selectedObject === obj.id ? 'selected-object' : ''} ${dragOverObjectId === obj.id ? 'drag-over-script' : ''}`}
                             style={{
                               position: 'absolute',
-                              left: visualTopLeft.x,
-                              top: visualTopLeft.y,
+                              left: visualTopLeft.x + canvasCenterOffsetX,
+                              top: visualTopLeft.y + canvasCenterOffsetY,
                               width: objectWidth,
                               height: objectHeight,
                               backgroundColor: fillColor,
@@ -4855,8 +5250,12 @@ export default function App() {
                           cursor:
                             selectedObject === obj.id && isDragging
                               ? 'grabbing'
+                              : selectedObject === obj.id && isRotating
+                              ? 'grabbing'
                               : activeTool === 'move'
                               ? 'grab'
+                              : activeTool === 'rotate'
+                              ? 'crosshair'
                               : 'default',
                               display: 'flex',
                               alignItems: 'center',
@@ -4867,10 +5266,33 @@ export default function App() {
                           boxShadow:
                             selectedObject === obj.id
                               ? '0 0 0 1px rgba(131, 157, 255, 0.75), 0 0 20px rgba(88, 110, 255, 0.35)'
+                              : dragOverObjectId === obj.id
+                              ? '0 0 0 2px rgba(0, 255, 136, 0.9), 0 0 25px rgba(0, 255, 136, 0.5)'
                               : 'none',
                               overflow: 'hidden',
+                              transform: `rotate(${obj.transform.rotation || 0}deg)`,
+                              transformOrigin: `${(obj.transform.x - visualTopLeft.x)}px ${(obj.transform.y - visualTopLeft.y)}px`,
                             }}
                             onMouseDown={(e) => handleSceneMouseDown(e, obj)}
+                            onDragOver={(e) => {
+                              if (isDraggingAssetFile(e)) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDragOverObjectId(obj.id);
+                              }
+                            }}
+                            onDrop={(e) => {
+                              const scriptPath = extractScriptPathFromDragEvent(e);
+                              if (scriptPath) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDragOverObjectId(null);
+                                attachScriptToObjectFromPath(obj.id, scriptPath);
+                              }
+                            }}
+                            onDragLeave={() => {
+                              setDragOverObjectId(null);
+                            }}
                           >
                             {isSprite ? (
                               spriteSource ? (
@@ -4890,6 +5312,25 @@ export default function App() {
                               ) : (
                                 <div className="sceneSpritePlaceholder">No Sprite</div>
                               )
+                            ) : textComponent ? (
+                              <div
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: textComponent.align === 'center' ? 'center' : textComponent.align === 'right' ? 'flex-end' : 'flex-start',
+                                  fontSize: `${textComponent.textSize || 16}px`,
+                                  color: textComponent.color || '#ffffff',
+                                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                  padding: '4px',
+                                  pointerEvents: 'none',
+                                }}
+                              >
+                                {textComponent.text || 'Text'}
+                              </div>
                             ) : (
                               <span>{obj.name}</span>
                             )}
@@ -4899,21 +5340,30 @@ export default function App() {
                         <div
                           className="selectionOverlay"
                           style={{
-                            left: obj.transform.x,
-                            top: obj.transform.y,
+                            left: visualTopLeft.x + canvasCenterOffsetX,
+                            top: visualTopLeft.y + canvasCenterOffsetY,
                             width: objectWidth,
                             height: objectHeight,
+                            transform: `rotate(${obj.transform.rotation || 0}deg)`,
+                            transformOrigin: `${(obj.transform.x - visualTopLeft.x)}px ${(obj.transform.y - visualTopLeft.y)}px`,
                           }}
                         >
                           <div className="selectionOutline" />
 
                           <div
                             className="selectionCenterHandle"
+                            style={{
+                              left: `${(obj.transform.x - visualTopLeft.x)}px`,
+                              top: `${(obj.transform.y - visualTopLeft.y)}px`,
+                            }}
                             onMouseDown={(e) => handleSelectionDragStart(e, obj)}
-                            title="Drag to move"
+                            title={obj.transform.rotation && Math.abs(obj.transform.rotation) > 0.1 
+                              ? `Anchor point (${Math.round(obj.transform.rotation)}° rotated)`
+                              : "Drag to move (anchor point)"}
                           />
 
                           {(() => {
+                            // Show resize handles even when rotated (like Godot/Unity)
                             const size = 12;
                             const half = size / 2;
                             const positions = {
@@ -4947,6 +5397,8 @@ export default function App() {
                           <div
                             className="selectionAxis axisX"
                             style={{
+                              left: `${(obj.transform.x - visualTopLeft.x)}px`,
+                              top: `${(obj.transform.y - visualTopLeft.y) - 26}px`,
                               width: Math.max(objectWidth + 60, 110),
                             }}
                           >
@@ -4958,6 +5410,8 @@ export default function App() {
                           <div
                             className="selectionAxis axisY"
                             style={{
+                              left: `${(obj.transform.x - visualTopLeft.x) - 26}px`,
+                              top: `${(obj.transform.y - visualTopLeft.y)}px`,
                               height: Math.max(objectHeight + 60, 110),
                             }}
                           >
@@ -4968,26 +5422,72 @@ export default function App() {
                         </div>
                       )}
 
+                          {/* Debug Mode: Show Area Component */}
                           {debugMode && areaComponent && (
                             <div
                               style={{
                                 position: 'absolute',
-                                // For sprites: sprite's top-left is at origin (when originX=width/2), so area should align top-left
-                                // For other objects: area is centered on origin, then offset
-                                left: isSprite
-                                  ? obj.transform.x + areaOffsetX
-                                  : obj.transform.x - areaWidth / 2 + areaOffsetX,
-                                top: isSprite
-                                  ? obj.transform.y + areaOffsetY
-                                  : obj.transform.y - areaHeight / 2 + areaOffsetY,
+                                // Area is positioned relative to the visual top-left corner
+                                left: visualTopLeft.x + areaOffsetX + canvasCenterOffsetX,
+                                top: visualTopLeft.y + areaOffsetY + canvasCenterOffsetY,
                                 width: areaWidth,
                                 height: areaHeight,
                                 border: '2px solid #00ff00',
                                 borderRadius: isCircle || areaComponent.radius != null ? '50%' : '0',
                                 pointerEvents: 'none',
                                 zIndex: 999,
+                                transform: `rotate(${obj.transform.rotation || 0}deg)`,
+                                transformOrigin: `${(obj.transform.x - visualTopLeft.x - areaOffsetX)}px ${(obj.transform.y - visualTopLeft.y - areaOffsetY)}px`,
                               }}
                             />
+                          )}
+
+                          {/* Debug Mode: Show Anchor Point */}
+                          {debugMode && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: obj.transform.x + canvasCenterOffsetX,
+                                top: obj.transform.y + canvasCenterOffsetY,
+                                pointerEvents: 'none',
+                                zIndex: 1000,
+                              }}
+                            >
+                              {/* Crosshair for anchor point */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  left: '-6px',
+                                  top: '-1px',
+                                  width: '12px',
+                                  height: '2px',
+                                  backgroundColor: '#ff00ff',
+                                }}
+                              />
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  left: '-1px',
+                                  top: '-6px',
+                                  width: '2px',
+                                  height: '12px',
+                                  backgroundColor: '#ff00ff',
+                                }}
+                              />
+                              {/* Center dot */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  left: '-2px',
+                                  top: '-2px',
+                                  width: '4px',
+                                  height: '4px',
+                                  backgroundColor: '#ffff00',
+                                  borderRadius: '50%',
+                                  border: '1px solid #ff00ff',
+                                }}
+                              />
+                            </div>
                           )}
 
                         </React.Fragment>
@@ -4999,11 +5499,11 @@ export default function App() {
                     className="cameraViewport"
                     style={{
                       position: 'absolute',
-                      left: 0,
-                      top: 0,
+                      left: canvasCenterOffsetX,
+                      top: canvasCenterOffsetY,
                       width: `${viewportWidth}px`,
                       height: `${viewportHeight}px`,
-                      border: '2px solid #e94560',
+                      border: '2px solid #00ff88',
                       boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
                       pointerEvents: 'none',
                       zIndex: 1000,
@@ -5015,7 +5515,7 @@ export default function App() {
                         top: '-24px',
                         left: '0',
                         fontSize: '11px',
-                        color: '#e94560',
+                        color: '#00ff88',
                         fontWeight: 'bold',
                         background: '#1a1a2e',
                         padding: '2px 6px',
@@ -5125,6 +5625,20 @@ export default function App() {
                                 updateSpriteComponentProperties(selectedObj.id, spriteIndex, { height: nextHeight });
                               }
                             }}
+                          />
+                        </div>
+                        <div className="propertyGroup">
+                          <label className="propertyLabel">Rotation (°)</label>
+                          <input
+                            className="propertyInput"
+                            type="number"
+                            value={Math.round(selectedObj.transform.rotation || 0)}
+                            onChange={(e) => updateGameObject(selectedObj.id, {
+                              transform: { ...selectedObj.transform, rotation: parseFloat(e.target.value) || 0 }
+                            })}
+                            step="15"
+                            min="-180"
+                            max="180"
                           />
                         </div>
                         {(() => {
@@ -5898,6 +6412,75 @@ export default function App() {
                                 <p className="scriptDropHint">Drag a script here to attach it</p>
                               </div>
                             )}
+
+                            {component.type === 'Text' && (
+                              <>
+                                <div className="propertyGroup">
+                                  <label className="propertyLabel">Text Content</label>
+                                  <textarea
+                                    className="propertyInput"
+                                    style={{ minHeight: '60px', fontFamily: 'monospace' }}
+                                    value={component.text || 'Text'}
+                                    onChange={(e) => {
+                                      const updated = selectedObj.components.map((c, componentIndex) =>
+                                        componentIndex === index ? { ...c, text: e.target.value } : c
+                                      );
+                                      updateGameObject(selectedObj.id, { components: updated });
+                                    }}
+                                  />
+                                </div>
+                                <div className="propertyGroup">
+                                  <label className="propertyLabel">Font Size</label>
+                                  <input
+                                    className="propertyInput"
+                                    type="number"
+                                    min="8"
+                                    max="200"
+                                    value={component.textSize || 16}
+                                    onChange={(e) => {
+                                      const updated = selectedObj.components.map((c, componentIndex) =>
+                                        componentIndex === index ? { ...c, textSize: parseFloat(e.target.value) || 16 } : c
+                                      );
+                                      updateGameObject(selectedObj.id, { components: updated });
+                                    }}
+                                  />
+                                </div>
+                                <div className="propertyGroup">
+                                  <label className="propertyLabel">Alignment</label>
+                                  <select
+                                    className="propertyInput"
+                                    value={component.align || 'left'}
+                                    onChange={(e) => {
+                                      const updated = selectedObj.components.map((c, componentIndex) =>
+                                        componentIndex === index ? { ...c, align: e.target.value } : c
+                                      );
+                                      updateGameObject(selectedObj.id, { components: updated });
+                                    }}
+                                  >
+                                    <option value="left">Left</option>
+                                    <option value="center">Center</option>
+                                    <option value="right">Right</option>
+                                  </select>
+                                </div>
+                                <div className="propertyGroup">
+                                  <label className="propertyLabel">Color</label>
+                                  <input
+                                    className="propertyInput"
+                                    type="color"
+                                    value={component.color || '#ffffff'}
+                                    onChange={(e) => {
+                                      const updated = selectedObj.components.map((c, componentIndex) =>
+                                        componentIndex === index ? { ...c, color: e.target.value } : c
+                                      );
+                                      updateGameObject(selectedObj.id, { components: updated });
+                                    }}
+                                  />
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#888', padding: '8px' }}>
+                                  💡 Text is rendered using React Native Skia's text rendering
+                                </div>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -5949,6 +6532,13 @@ export default function App() {
                         title="Add Script"
                       >
                         📜 Script
+                      </button>
+                      <button 
+                        className="componentBtn"
+                        onClick={() => addComponent(selectedObj.id, 'Text')}
+                        title="Add Text Label"
+                      >
+                        📝 Text
                       </button>
                     </div>
                   </div>
@@ -6055,17 +6645,58 @@ export default function App() {
             
             <div className="contextMenuSeparator"></div>
             
-            <div className="contextMenuItem" onClick={() => {
-              addChildGameObject(contextMenu.objectId);
-              setContextMenu(null);
-            }}>
+            <div 
+              className="contextMenuItem" 
+              onMouseEnter={() => {
+                setShowComponentMenu(false);
+                setShowAddNodeMenu(true);
+              }}
+              onMouseLeave={() => setShowAddNodeMenu(false)}
+              style={{ position: 'relative' }}
+            >
               <span>Add Child Node</span>
-              <span className="contextShortcut">Ctrl+Shift+N</span>
+              <span style={{ marginLeft: 'auto', fontSize: '10px' }}>▶</span>
+              
+              {showAddNodeMenu && (
+                <div className="contextSubmenu">
+                  <div className="contextMenuItem" onClick={() => {
+                    createGameObjectWithType(contextMenu.objectId, 'rect');
+                    setContextMenu(null);
+                    setShowAddNodeMenu(false);
+                  }}>
+                    <span>▭ Rectangle</span>
+                  </div>
+                  <div className="contextMenuItem" onClick={() => {
+                    createGameObjectWithType(contextMenu.objectId, 'circle');
+                    setContextMenu(null);
+                    setShowAddNodeMenu(false);
+                  }}>
+                    <span>● Circle</span>
+                  </div>
+                  <div className="contextMenuItem" onClick={() => {
+                    createGameObjectWithType(contextMenu.objectId, 'text');
+                    setContextMenu(null);
+                    setShowAddNodeMenu(false);
+                  }}>
+                    <span>📝 Text</span>
+                  </div>
+                  <div className="contextMenuItem" onClick={() => {
+                    createGameObjectWithType(contextMenu.objectId, 'empty');
+                    setContextMenu(null);
+                    setShowAddNodeMenu(false);
+                  }}>
+                    <span>📦 Empty Node</span>
+                  </div>
+                </div>
+              )}
             </div>
             
             <div 
               className="contextMenuItem" 
-              onMouseEnter={() => setShowComponentMenu(true)}
+              onMouseEnter={() => {
+                setShowComponentMenu(true);
+                setShowAddNodeMenu(false);
+              }}
               onMouseLeave={() => setShowComponentMenu(false)}
               style={{ position: 'relative' }}
             >

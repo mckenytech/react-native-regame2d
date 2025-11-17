@@ -38,22 +38,22 @@ export function scale(x: number, y?: number): Partial<TransformComponent> {
 /**
  * Rotate component - sets the rotation of a game object
  */
-export function rotate(angle: number): Partial<TransformComponent> {
+export function rotate(angle: number): Component {
   return {
     id: 'transform',
     rotation: angle,
-  } as TransformComponent;
+  } as Component;
 }
 
 /**
  * Anchor component - sets the anchor point for rendering
  * Anchor values: "topleft" | "top" | "topright" | "left" | "center" | "right" | "botleft" | "bot" | "botright"
  */
-export function anchor(anchorValue: string): Partial<TransformComponent> {
+export function anchor(anchorValue: string): Component {
   return {
     id: 'transform',
     anchor: anchorValue,
-  } as Partial<TransformComponent>;
+  } as Component;
 }
 
 /**
@@ -175,4 +175,8 @@ export function color(r: number, g: number, b: number, a = 1): string {
 export function rgb(r: number, g: number, b: number): string {
   return color(r, g, b, 1);
 }
+
+// Re-export text component
+export { text } from './text';
+export type { TextComponent, TextComponentOptions } from './text';
 

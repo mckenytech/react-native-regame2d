@@ -146,6 +146,38 @@ regame-engine/
     └── MyGame23/        # EXISTING project (also needs updates!)
 ```
 
+## 11. CSS Flexbox Layout Rules (CRITICAL)
+**Problem:** Flex items with `flex: 1` can greedily consume ALL space, collapsing sibling elements to zero width/height.
+
+**Solution:** Always add `min-width: 0` (or `min-height: 0` for column layouts) to flex items that should shrink:
+
+```css
+/* ❌ BAD - .sceneView takes all space, .rightSidebar collapses */
+.sceneView {
+  flex: 1;
+}
+.rightSidebar {
+  width: 260px;
+}
+
+/* ✅ GOOD - Both share space properly */
+.sceneView {
+  flex: 1;
+  min-width: 0; /* Allows flex item to shrink */
+}
+.rightSidebar {
+  width: 260px;
+  flex-shrink: 0; /* Prevents sidebar from collapsing */
+}
+```
+
+**Editor Layout Rules:**
+- `.editorLayout` = horizontal flex container (hierarchy | sceneView | rightSidebar)
+- `.hierarchy` = fixed width (220px), `flex-shrink: 0`
+- `.sceneView` = `flex: 1`, **must have `min-width: 0`**
+- `.rightSidebar` = fixed width (260px), `flex-shrink: 0`
+- `.panelHeader` = `flex-shrink: 0`, `width: 100%` to prevent overflow collapse
+
 ## Quick Checklist for Changes
 When making changes, ask yourself:
 - [ ] Did I update the template?

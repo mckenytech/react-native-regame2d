@@ -36,6 +36,44 @@ export class GameObject implements IGameObject {
 
   add(component: Component): this {
     this.components.set(component.id, component);
+    
+    // Special handling for text component - add getter/setters to GameObject
+    if (component.id === 'text') {
+      const textComp = component as any;
+      
+      // text - getter/setter for text content (SharedValue)
+      Object.defineProperty(this, 'text', {
+        get: () => textComp.text.value,
+        set: (value: string) => { textComp.text.value = value; },
+        enumerable: false,
+        configurable: true,
+      });
+      
+      // textSize - getter/setter for font size (SharedValue)
+      Object.defineProperty(this, 'textSize', {
+        get: () => textComp.textSize.value,
+        set: (value: number) => { textComp.textSize.value = value; },
+        enumerable: false,
+        configurable: true,
+      });
+      
+      // textColor - getter/setter for text color (SharedValue)
+      Object.defineProperty(this, 'textColor', {
+        get: () => textComp.color.value,
+        set: (value: string) => { textComp.color.value = value; },
+        enumerable: false,
+        configurable: true,
+      });
+      
+      // textAlign - getter/setter for text alignment (SharedValue)
+      Object.defineProperty(this, 'textAlign', {
+        get: () => textComp.align.value,
+        set: (value: 'left' | 'center' | 'right') => { textComp.align.value = value; },
+        enumerable: false,
+        configurable: true,
+      });
+    }
+    
     this.trigger('use', component);
     return this;
   }

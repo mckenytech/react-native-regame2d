@@ -75,6 +75,16 @@ declare namespace ReGame {
     friction?: number;
   }
 
+  interface TextComponent extends Component {
+    id: 'text';
+    text: string;
+    textSize: number;
+    font?: string | null;
+    width?: number;
+    align?: 'left' | 'center' | 'right';
+    color?: string;
+  }
+
   interface ComponentMap {
     transform: TransformComponent;
     body: BodyComponent;
@@ -82,6 +92,7 @@ declare namespace ReGame {
     circle: CircleComponent;
     sprite: SpriteComponent;
     area: AreaComponent;
+    text: TextComponent;
     [key: string]: Component;
   }
 
@@ -119,6 +130,12 @@ declare namespace ReGame {
     onCollideEnd(tag: string, callback: (other: GameObject) => void): void;
     update(dt: number): void;
     destroy(): void;
+    
+    // Text component properties (available when text() component is added)
+    text?: string;
+    textSize?: number;
+    textColor?: string;
+    textAlign?: 'left' | 'center' | 'right';
   }
 
   interface GameContext {
@@ -180,6 +197,16 @@ declare function area(options?: {
   restitution?: number;
   friction?: number;
 }): ReGame.AreaComponent;
+declare function text(
+  content: string,
+  options?: {
+    size?: number;
+    font?: string | null;
+    width?: number;
+    align?: 'left' | 'center' | 'right';
+    color?: string;
+  },
+): ReGame.TextComponent;
 declare function color(
   r: number,
   g: number,
